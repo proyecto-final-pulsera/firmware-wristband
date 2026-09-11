@@ -1,41 +1,45 @@
 #include <Arduino.h>
 #include "drivers/battery_driver.h"
-
-// Para acceder a algunos métodos extra en el test de manera temporal
+#include "drivers/bhi260_driver.h"
+#include "test_virtual_sensors.h"
 #include "Nicla_System.h"
+#include "test_imu_fifo.h"
+#include "rtos.h"
 
 BatteryDriver* battery;
+BHI260Driver* imu;
 
-// Variables para manejar el buffer de mensajes cuando no hay puerto serie
-String logBuffer = "";
-bool wasSerialConnected = false;
+// Hilo dedicado para hacer ping a la batería
+rtos::Thread batteryThread(osPriorityNormal, 1024);
+
+void batteryPingTask() {
+  while (true) {
+    if (battery != nullptr) {
+      battery->ping();
+    }
+    rtos::ThisThread::sleep_for(2000);
+  }
+}
 
 void setup() {
   Serial.begin(115200);
 
   // Instanciar e inicializar el driver de batería
   battery = BatteryDriver::createInstance();
+  batteryThread.start(batteryPingTask);
 
-}
+  // Inicializar nuestro driver IMU
+  imu = BHI260Driver::getInstance();
+  imu->init();
+  
+  // Vaciamos FIFOs iniciales para garantizar RISING pin edge
+  imu->flushFIFOs();
 
-String getOperatingStatusStr(OperatingStatus status) {
-  switch (status) {
-    case OperatingStatus::Ready: return "Listo (No cargando)";
-    case OperatingStatus::Charging: return "Cargando...";
-    case OperatingStatus::ChargingComplete: return "Carga Completa";
-    case OperatingStatus::Error: return "¡Error en bateria!";
-    default: return "Desconocido";
-  }
+  // Ejecución del test directamente (usando variables estáticas internamente)
+  runImuFifoTest();
 }
 
 void loop() {
-
-
-  // Testeo de Batería cada 2 segundos
-  static unsigned long lastTest = 0;
-  if (millis() - lastTest >= 2000) {
-    lastTest = millis();
-    battery->ping();
-    Serial.println("sigo vivo");
-  }
+  // Lógica principal de tu aplicación (vacía por el momento mientras estamos en test)
+  rtos::ThisThread::sleep_for(1000);
 }
