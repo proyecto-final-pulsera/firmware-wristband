@@ -45,7 +45,7 @@ void runImuFifoTest() {
     Serial.println("[DEBUG] Etapa 3/6: Esperando 10 segundos. Mové e incliná la placa ahora...");
     // 3. Pasado 10 segundos, monitoreamos el flag
     unsigned long start =  millis();
-    while(millis() - start <= 10000){
+    while(millis() - start <= 15000){
         if(imu->isInterruptTriggered()) {
             imu->disableInterrupt();
             imu->updateFifoData(); 
@@ -110,23 +110,23 @@ void runFifoDepthTest() {
     // Instancia estática para no volar el stack
     static ImuSensorDriver imuSensor;
     
-    // Lo configuramos a una altísima velocidad: 200 Hz
-    Serial.println("[DEBUG] Etapa 1: Configurando Acelerometro a 200Hz...");
-    imuSensor.begin(200.0f, 0); 
+    // Lo configuramos a una altísima velocidad: 800 Hz
+    Serial.println("[DEBUG] Etapa 1: Configurando Acelerometro a 800Hz...");
+    imuSensor.begin(800.0f, 0); 
     
     // Vaciamos basuras y reseteamos el contador de test
     imu->flushFIFOs();
     imuSensor.fifoFlush();
     imuSensor.resetTotalPushed();
 
-    Serial.println("[DEBUG] Etapa 2: Apagando host y esperando 30 SEGUNDOS...");
+    Serial.println("[DEBUG] Etapa 2: Apagando host y esperando 10 SEGUNDOS...");
     Serial.println("        -> Esto forzará el desborde del buffer interno del BHI260.");
     
     imu->suspendHost();
     
-    // Esperamos 30 segundos
-    // En 30 segundos a 200 Hz = 6000 muestras = ~48 KB de datos.
-    delay(30000);
+    // Esperamos 10 segundos
+    // En 10 segundos a 800 Hz = 8000 muestras
+    delay(10000);
 
     Serial.println("[DEBUG] Etapa 3: Despertando host y parseando TODO el buffer...");
     imu->resumeHost();

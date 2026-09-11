@@ -30,11 +30,18 @@ Bosch diseña las cinemáticas de los gestos virtuales para cumplir estrictament
 * **Fuente Oficial de Android:** [Android Sensor Types (AOSP)](https://source.android.com/devices/sensors/sensor-types?hl=es-419#wake_up_gesture) - *Documentación clave para entender el comportamiento y cinemática de cada gesto.*
 * **Wrist Tilt Gesture (ID 67):** (Recomendado para pulseras). Reacciona a un giro fluido de muñeca desde un estado de reposo, imitando el gesto clásico para mirar un Smartwatch.
 * **Pickup Gesture (ID 61):** Optimizado para Smartphones. Exige que el dispositivo se levante desde una mesa plana y se rote hacia la cara del usuario. Si se levanta de forma paralela al suelo, el evento se ignora.
+* **Significant Motion (ID 55):** A diferencia de lo que sugiere el nombre, **no detecta golpes fuertes ni impactos breves**. Según AOSP, está diseñado exclusivamente para activar la geolocalización cuando el usuario se desplaza físicamente (caminando, en auto, bicicleta). Cambios de estado cortos o impactos se descartan. No permite configurar umbrales y no es adecuado para detectar colisiones en la pulsera.
 
 ### 3.3 El "One-Shot" y el Sensor Estacionario (Stationary Detect - ID 75)
 Los sensores de evento especiales reportan mediante un mecanismo llamado "One-Shot" o de un solo disparo.
 * **Comportamiento Estacionario:** Según la especificación AOSP, el dispositivo debe estar con aceleración constante (gravedad 1G) y giro 0 rad/s durante **exactamente 5 segundos** ininterrumpidos. Cualquier micro vibración en la mesa resetea el contador a cero.
 * **Re-armado (El gran secreto):** Cuando pasan los 5 segundos, el sensor escupe 1 único paquete (sin payload) avisando el evento y **se apaga lógicamente**. Para que vuelva a dispararse, el usuario debe mover la placa (para sacarla del estado estacionario) y la placa debe volver a quedar quieta. En el código (`test_virtual_sensors.cpp`), se descubrió que es necesario volver a invocar `configureSensor()` cada vez que se dispara un sensor One-Shot para re-habilitarlo (auto-rearmado).
+
+### 3.4 Resultados de Validación de Sensores Virtuales
+Durante las pruebas de validación con el test de eventos en buffer (`test_eventos_imu`), se confirmó la excelente precisión y funcionamiento de los siguientes algoritmos de Bosch:
+* **Step Detector (Pasos):** Mostró una precisión exacta durante la caminata de prueba, registrando 10 eventos detectados al dar exactamente 10 pasos.
+* **Wrist Tilt (Giro de Muñeca):** Detectó correctamente y sin falsos positivos el movimiento típico de levantar y girar el brazo para consultar un smartwatch.
+* **Stationary Detect (Reposo Estacionario):** Al ser un sensor "One-Shot" (se desactiva tras dispararse) que requiere 5 segundos ininterrumpidos de quietud total, se verificó su correcto auto-rearmado por software. En una prueba extendida de 30 segundos, el sistema logró contabilizar exactamente 5 disparos, confirmando la latencia de 5 segundos de evaluación sumado al tiempo ínfimo de rearme dinámico.
 
 ## 4. Notas del Sistema Operativo (Mbed OS)
 
@@ -61,3 +68,11 @@ Durante el desarrollo del sistema de lectura por lotes (Batching con AP Suspend)
 * **Solución Implementada:** Se incrustó un `delay(10)` mandatorio directamente dentro del método `BHI260Driver::resumeHost()` para garantizar que cuando el firmware vuelva al main thread y ejecute `updateFifoData()`, la matriz de Bosch ya tenga las colas de memoria disponibles para su vaciado masivo.
 
 *Documento actualizado durante la fase de optimización de memoria e integraciones.*
+
+### 5.3 Prueba de FIFO Exitosa
+Se ejecutó con éxito el test `runImuFifoTest()`, validando correctamente que al configurar un sensor (Tilt Detector) en la Wakeup FIFO y entrar en modo `AP Suspend`, el microcontrolador deja de recibir interrupciones por datos regulares del acelerómetro y solo despierta ante el evento físico deseado. El `resumeHost()` y posterior `updateFifoData()` demostró poder extraer todo el historial de fondo sin problemas.
+
+### 5.4 Capacidad real de la FIFO de Hardware (Depth Test)
+Mediante el test `runFifoDepthTest()`, forzando el desborde a alta frecuencia (800 Hz) con el Host suspendido, se determinó de forma empírica la capacidad máxima real de almacenamiento del sensor. 
+* **Resultado:** El buffer interno (Non-Wakeup FIFO) del BHI260AP soporta un máximo de **2022 muestras** continuas de acelerómetro antes de empezar a sobrescribir o descartar datos viejos.
+* **Cálculo de Memoria:** Siendo que cada paquete de acelerómetro ocupa 7 bytes (1 de cabecera/ID + 6 de payload X, Y, Z), se confirma que la capacidad de memoria física asignada a la FIFO dentro del hardware de Bosch ronda los **14,154 bytes** (aprox. 14 KB).

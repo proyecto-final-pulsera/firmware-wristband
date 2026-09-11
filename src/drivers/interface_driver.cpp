@@ -100,12 +100,9 @@ void InterfaceDriver::toggleLed() {
 void InterfaceDriver::buttonInterruptHandler() {
     InterfaceDriver* inst = InterfaceDriver::getInstance();
     if (inst) {
-        // Desactivamos temporalmente las interrupciones de todos los botones 
-        // para evitar disparos múltiples mientras la MDE procesa el evento.
-        for (int i = 0; i < MAX_BUTTONS; i++) {
-            inst->buttons[i].disableInterrupt();
-        }
-
+        // IMPORTANTE: Mbed OS crashea si llamamos a detachInterrupt() desde una ISR
+        // ya que la función nativa intenta tomar un Mutex ("Not allowed in ISR context").
+        // Desactivaremos las interrupciones en la tarea de MDE (fuera de la ISR).
         inst->giveSemaphoreFromISR();
     }
 }
@@ -119,6 +116,10 @@ void InterfaceDriver::processButtonsMDE() {
         case ButtonState::IDLE:
             // Estado de reposo (normalmente la tarea está bloqueada en el semáforo)
             // Cuando la tarea pase el semáforo, transicionamos a DEBOUNCE.
+            // Es aquí, FUERA de la ISR, donde es seguro deshabilitar las interrupciones
+            for (int i = 0; i < MAX_BUTTONS; i++) {
+                buttons[i].disableInterrupt();
+            }
             _mdeState = ButtonState::DEBOUNCE;
             _mdeTimer = millis();
             break;
