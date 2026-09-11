@@ -18,9 +18,8 @@ void runImuFifoTest() {
     // Instanciamos el objeto de manera ESTATICA para no desbordar el Stack del main thread
     static ImuSensorDriver imuSensor;
     
-
     Serial.println("[DEBUG] Etapa 1/6: Configurando Acelerometro a 50Hz...");
-    imuSensor.begin(10.0f, 0); 
+    imuSensor.begin(50.0f, 0); 
     
     Serial.println("[DEBUG] Etapa 1.5/6: Configurando Tilt Detector (Wakeup)...");
     SensorConfigurationPacket cfgTilt;
@@ -49,7 +48,14 @@ void runImuFifoTest() {
     while(millis() - start <= 10000){
         if(imu->isInterruptTriggered()) {
             imu->disableInterrupt();
+            imu->updateFifoData(); 
             Serial.println("[TEST] -> ¡Interrupción disparada detectada por el handler!");
+            if (imu->availableSensorData()){
+                Serial.print("ID");
+                SensorDataPacket data;
+                imu->readSensorData(data);
+                Serial.print(data.sensorId);
+            }
             imu->clearInterruptFlag();
             imu->enableInterrupt();
         }
@@ -59,17 +65,9 @@ void runImuFifoTest() {
     Serial.println("[DEBUG] Etapa 4/6: Despertando host (AP Resume) para permitir lectura masiva...");
     // 4. Indicamos al sensor que el host está despierto
     imu->resumeHost();
-    
-    // Le damos unos milisegundos al BHI260 para que actualice sus registros de estado de interrupción
-    // tras salir del modo suspendido, caso contrario bhy2_get_and_process_fifo podría no ver la data pendiente.
-    delay(50);
 
     Serial.println("[DEBUG] Etapa 5/6: Parseando los datos acumulados de la FIFO fisica...");
-    // Llamamos varias veces o esperamos un poco
     imu->updateFifoData(); 
-    delay(10);
-    imu->updateFifoData(); 
-    
     
     // 5. Mostrar tamaño de la FIFO de la clase
     uint16_t count = imuSensor.getAvailableCount();

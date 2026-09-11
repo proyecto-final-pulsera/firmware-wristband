@@ -52,4 +52,12 @@ Durante el desarrollo se intentó crear dos métodos en `BHI260Driver` (`updateW
 * **El Problema:** La función en C de la API de Bosch que convierte los bytes crudos (SPI/I2C) en objetos comprensibles se llama `parse_fifo()`. Los ingenieros de Bosch declararon esta función (y varias de sus dependencias) como **`static`** dentro del archivo `bhy2.c`. Esto significa que el compilador aísla la función y la hace 100% privada e inaccesible desde cualquier código externo (como nuestro driver C++).
 * **Solución Implementada:** Se desestimó la idea de editar el código fuente de la librería del fabricante para evitar problemas de compatibilidad y la necesidad de mantener un "fork" manual. En su lugar, se mantiene el uso del método nativo `updateFifoData()`, el cual utiliza por debajo `bhy2_get_and_process_fifo()` para drenar y parsear todo en un solo barrido masivo directo del hardware. Si la aplicación requiere filtrar (descartar) un tipo de dato mientras extrae otro, se acordó realizar ese descarte por software (mediante flags booleanos en los métodos `pop()` y `push()` de la clase interna del sensor).
 
-*Documento actualizado durante la fase de optimización de memoria.*
+### 5.2 Efectos colaterales del Host Suspend y Tiempos de Refresco
+Durante el desarrollo del sistema de lectura por lotes (Batching con AP Suspend), se descubrió que el registro `BHY2_HIF_CTRL_AP_SUSPENDED` altera el comportamiento interno de la función `bhy2_get_and_process_fifo()` de la API de Bosch.
+* **Comportamiento Específico:** 
+  * Si el host está **suspendido** (`suspendHost()`, o `AP Suspend = 1`), invocar el parseo *únicamente* extrae y parsea los datos pertenecientes a la **Wakeup FIFO** (los eventos críticos). El microcontrolador ignora la **Non-Wakeup FIFO** por completo, protegiéndola.
+  * Si el host está **despierto** (`resumeHost()`, o `AP Suspend = 0`), el parseo extrae **ambas FIFOs**, trayendo finalmente toda la data regular acumulada (ej. paquetes del acelerómetro de background).
+* **Delay Mandatorio Post-Despertar:** Se descubrió que luego de mandar la señal de `resumeHost()`, el chip BHI260AP demora en reconfigurar sus canales internos. **Si se intenta vaciar la FIFO inmediatamente después del resume, la Non-Wakeup FIFO retorna vacía (cero datos).**
+* **Solución Implementada:** Se incrustó un `delay(10)` mandatorio directamente dentro del método `BHI260Driver::resumeHost()` para garantizar que cuando el firmware vuelva al main thread y ejecute `updateFifoData()`, la matriz de Bosch ya tenga las colas de memoria disponibles para su vaciado masivo.
+
+*Documento actualizado durante la fase de optimización de memoria e integraciones.*

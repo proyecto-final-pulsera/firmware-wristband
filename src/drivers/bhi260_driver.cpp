@@ -71,6 +71,9 @@ void BHI260Driver::resumeHost() {
     // Limpiar el bit de AP Suspended (desbloquea la FIFO Non-Wakeup)
     stat &= ~BHY2_HIF_CTRL_AP_SUSPENDED;
     bhy2_set_host_intf_ctrl(stat, &sensortec._bhy2);
+    // IMPORTANTE: El BHI260 requiere de unos 10ms aprox. para reconfigurar 
+    // sus flags internos y exponer de vuelta la Non-Wakeup FIFO luego de despertar.
+    delay(10);
 }
 
 bool BHI260Driver::hasSensor(uint8_t sensorId) {
