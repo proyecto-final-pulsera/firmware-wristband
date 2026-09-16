@@ -1,8 +1,23 @@
 #pragma once
 #include <Arduino.h>
 
-#define PWM_FREQ 1000 // Frecuencia por defecto, ajustable según el motor
-#define PWM_DUTY_BREAK 50
+namespace mbed {
+    class PwmOut;
+    class DigitalOut;
+}
+
+/////////////////
+////
+//// Drive de DRV2603 Haptic Drive With Auto-Resonance Detection for Linear Resonance Actuators (LRA)
+////
+///////////////7//
+#define PWM_FREQ 20000 // Frecuencia de 20KHz
+#define PWM_DUTY_MAX 75.0f // Duty máximo 75%
+#define PWM_DUTY_MIN 50.0f // Duty mínimo 50%
+
+// Definición de pines para la placa Nicla
+#define VIBRATOR_PWM_PIN    0
+#define VIBRATOR_ENABLE_PIN 3
 
 /**
  * @class VibratorDriver
@@ -26,20 +41,38 @@ public:
     VibratorDriver(const VibratorDriver&) = delete;
     VibratorDriver& operator=(const VibratorDriver&) = delete;
 
+    /**
+     * @brief Habilita el vibrador.
+     * Activa primero el PWM y luego enciende el pin de Enable.
+     */
     void enable();
+
+    /**
+     * @brief Deshabilita el vibrador.
+     * Apaga primero el pin de Enable y luego detiene el PWM.
+     */
     void disable();
     
     /**
      * @brief Aplica un freno activo al vibrador.
+     * Pone el duty del PWM al mínimo (50%) sin apagar el pin de Enable.
      */
     void brake(); 
     
+    /**
+     * @brief Configura la fuerza del vibrador.
+     * @param strength Valor de 0 a 100. Se mapea al rango dinámico entre _minDuty y _maxDuty.
+     */
     void setStrength(uint8_t strength);
     uint8_t getStrength();
     
     bool getState();
     
-    void setMaxStrength(uint8_t max_strength);
+    /**
+     * @brief Permite ajustar los límites del duty cycle en tiempo de ejecución.
+     */
+    void setMaxDuty(float max_duty);
+    void setMinDuty(float min_duty);
 
 private:
     /// Instancia única del Singleton.
@@ -51,9 +84,16 @@ private:
     VibratorDriver();
 
     void init();
+    
+    // Función de ayuda para actualizar el PWM con el duty actual mapeado
+    void updatePWM();
 
-    uint8_t _maxStrength;
-    uint8_t _minStrength;
-    uint8_t _strength;
+    uint8_t _strength;    // 0 a 100
+    float _maxDuty;       // Límite máximo de duty (por defecto PWM_DUTY_MAX)
+    float _minDuty;       // Límite mínimo de duty (por defecto PWM_DUTY_MIN)
     bool _state;
+
+    // Punteros a los pines usando Mbed OS
+    mbed::PwmOut* _pwm_pin;
+    mbed::DigitalOut* _enable_pin;
 };

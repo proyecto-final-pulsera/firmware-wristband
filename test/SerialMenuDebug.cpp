@@ -1,6 +1,8 @@
 #include "SerialMenuDebug.h"
+#include "drivers/vibrator_driver.h"
 
 SerialMenuDebug::SerialMenuDebug() {
+
     clear();
 }
 
@@ -29,8 +31,32 @@ void SerialMenuDebug::processSerial() {
         
         if (cmd == "EVENTOS") {
             printEvents();
+        } else if (cmd == "VIBRATOR_ENA") {
+            VibratorDriver::createInstance()->enable();
+            Serial.println("[DEBUG] Vibrador habilitado.");
+        } else if (cmd == "VIBRATOR_DES") {
+            VibratorDriver::createInstance()->disable();
+            Serial.println("[DEBUG] Vibrador deshabilitado.");
+        } else if (cmd == "VIBRATOR_BREAK") {
+            VibratorDriver::createInstance()->brake();
+            Serial.println("[DEBUG] Vibrador deshabilitado.");
+        
+        } else if (cmd.startsWith("VIBRATOR_DUTY_")) {
+            String valueStr = cmd.substring(14);
+            int value = valueStr.toInt();
+            VibratorDriver::createInstance()->setStrength((uint8_t)value);
+            Serial.print("[DEBUG] VEVibrador strength seteado a: ");
+            Serial.println(value);
         } else {
-            Serial.println("[DEBUG] Comando desconocido. Escriba EVENTOS para ver las metricas.");
+            Serial.print("[DEBUG] Comando desconocido: '");
+            Serial.print(cmd);
+            Serial.println("'");
+            Serial.println("[DEBUG] Escriba EVENTOS para ver las metricas.");
+        }
+
+        // Vaciamos el buffer de recepción (RX) descartando cualquier caracter sobrante (basura o múltiples enters)
+        while (Serial.available() > 0) {
+            Serial.read();
         }
     }
 }
