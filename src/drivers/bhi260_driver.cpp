@@ -11,12 +11,9 @@ BHI260Driver* BHI260Driver::getInstance() {
 }
 
 BHI260Driver::BHI260Driver() {
-
     // We will initialize it here or leave it for later as requested.
-    
     _interruptPin = INT_BHI260; // Use Nicla's default BHI260 interrupt pin
     _isr_handler = nullptr;
-    _interruptTriggered = false;
 }
 
 BHI260Driver::~BHI260Driver() {
@@ -36,7 +33,7 @@ bool BHI260Driver::init() {
 }
 
 void BHI260Driver::updateFifoData() {
-    bhy2_get_and_process_fifo(sensortec._workBuffer, WORK_BUFFER_SIZE, &sensortec._bhy2);
+    sensortec.update();
 }
 
 void BHI260Driver::configureSensor(SensorConfigurationPacket& config) {
@@ -51,11 +48,9 @@ void BHI260Driver::flushFIFOs() {
         SensorDataPacket dummy;
         readSensorData(dummy);
     }
-    // Aseguramos que la flag quede limpia para el próximo evento real
-    clearInterruptFlag();
 }
 
-void BHI260Driver::suspendHost() {
+void BHI260Driver::disableNonWakeupFIFO() {
     uint8_t stat;
     // Leer el estado actual del registro
     bhy2_get_host_intf_ctrl(&stat, &sensortec._bhy2);
@@ -64,7 +59,7 @@ void BHI260Driver::suspendHost() {
     bhy2_set_host_intf_ctrl(stat, &sensortec._bhy2);
 }
 
-void BHI260Driver::resumeHost() {
+void BHI260Driver::enableNonWakeupFIFO() {
     uint8_t stat;
     // Leer el estado actual del registro
     bhy2_get_host_intf_ctrl(&stat, &sensortec._bhy2);
@@ -124,22 +119,3 @@ void BHI260Driver::disableInterrupt() {
     }
 }
 
-void BHI260Driver::handleInterrupt() {
-    _interruptTriggered = true;
-}
-
-void BHI260Driver::updateWakeupFIFO() {
-    // To be implemented: process only the wakeup FIFO
-}
-
-void BHI260Driver::updateNonWakeupFIFO() {
-    // To be implemented: process only the non-wakeup FIFO
-}
-
-bool BHI260Driver::isInterruptTriggered() const {
-    return _interruptTriggered;
-}
-
-void BHI260Driver::clearInterruptFlag() {
-    _interruptTriggered = false;
-}

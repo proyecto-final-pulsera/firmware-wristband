@@ -5,11 +5,9 @@
 #include "Nicla_System.h"
 #include "rtos.h"
 #include "test_eventos_imu.h"
-#include "SerialMenuDebug.h"
+#include "test_virtual_sensors.h"
 BatteryDriver* battery;
 BHI260Driver* imu;
-SerialMenuDebug serialLog;
-
 
 // Hilo dedicado para hacer ping a la batería
 rtos::Thread batteryThread(osPriorityNormal, 2048);
@@ -43,25 +41,19 @@ void setup() {
   imu = BHI260Driver::getInstance();
   
   imu->init();
-  
+  imu->disableNonWakeupFIFO();
   // Vaciamos FIFOs iniciales para garantizar RISING pin edge
   imu->flushFIFOs();
 
   // Instanciamos el driver del vibrador para que el pin Enable arranque en LOW
   VibratorDriver::createInstance();
   // Ejecutamos el test de los eventos
-  //runTestEventosImu();
-
+  // runTestEventosImu();
+  runVirtualSensorsTest();
 }
 
 void loop() {
-
-  serialLog.processSerial();
-
-  // Usamos un busy-wait en lugar de sleep_for para evitar que el nRF52
-  // entre en modo bajo consumo (lo cual apaga el reloj y corrompe el UART)
-  unsigned long start = millis();
-  while(millis() - start < 50) {
-      // No hacer nada, mantener el CPU despierto
-  }
+  // Lógica principal de tu aplicación (vacía por el momento mientras estamos en test)
+  rtos::ThisThread::sleep_for(100);
+  loopVirtualSensorsTest();
 }
