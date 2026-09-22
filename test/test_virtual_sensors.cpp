@@ -5,7 +5,7 @@
 static BHI260Driver* imu_test_ptr = nullptr;
 
 // Función auxiliar para habilitar/re-habilitar sensores
-static void enableTestSensor(uint8_t id, float sampleRate = 1.0f) {
+static void enableTestSensor(uint8_t id, float sampleRate = 25.0f) {
   SensorConfigurationPacket cfg;
   cfg.sensorId = id;
   cfg.sampleRate = sampleRate; 
@@ -34,7 +34,7 @@ void runVirtualSensorsTest() {
 
   Serial.println("--- INICIANDO TEST DE SENSORES DE EVENTO ---");
 
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < sizeof(testSensors)/sizeof(uint8_t); i++) {
     uint8_t id = testSensors[i];
     bool present = imu_test_ptr->hasSensor(id);
     Serial.print("Sensor ID "); Serial.print(id);
@@ -55,7 +55,10 @@ void runVirtualSensorsTest() {
 void loopVirtualSensorsTest() {
   if (!imu_test_ptr) return;
 
-  // Procesar todos los paquetes disponibles
+  // 1. OBTENER DATOS DE LA FIFO FÍSICA
+  imu_test_ptr->updateFifoData();
+
+  // 2. Procesar todos los paquetes disponibles
   while (imu_test_ptr->availableSensorData()) {
     SensorDataPacket data;
     if (imu_test_ptr->readSensorData(data)) {
@@ -74,8 +77,15 @@ void loopVirtualSensorsTest() {
       }
 
       // Si el sensor es One-Shot, se auto-desactiva al dispararse.
-      // Excluimos 53 (Counter) y 70 (Orientation) que son continuos/on-change y no One-Shot.
-      if (data.sensorId != SENSOR_ID_STEP_COUNTER && data.sensorId != SENSOR_ID_DEVICE_ORI) {
+      // En la arquitectura de Bosch BHY2, los sensores con payload PEVENT (como 75 y 77) operan como One-Shot mecánicamente.
+      // Excluimos solo 53 (Counter) y 70 (Orientation) que no envían PEVENT.
+      if( data.sensorId == SENSOR_ID_MOTION_DET) enableTestSensor(SENSOR_ID_STATIONARY_DET);
+      if( data.sensorId == SENSOR_ID_STATIONARY_DET) enableTestSensor(SENSOR_ID_MOTION_DET);
+      if (data.sensorId != SENSOR_ID_STEP_COUNTER 
+        && data.sensorId != SENSOR_ID_DEVICE_ORI
+        && data.sensorId != SENSOR_ID_STATIONARY_DET
+        && data.sensorId != SENSOR_ID_MOTION_DET
+      ) {
           enableTestSensor(data.sensorId);
       }
     }

@@ -4,7 +4,7 @@
 #include "Nicla_System.h"
 #include "rtos.h"
 #include "test_eventos_imu.h"
-
+#include "test_virtual_sensors.h"
 BatteryDriver* battery;
 BHI260Driver* imu;
 
@@ -31,15 +31,17 @@ void setup() {
   imu = BHI260Driver::getInstance();
   
   imu->init();
-  
+  imu->suspendHost();
   // Vaciamos FIFOs iniciales para garantizar RISING pin edge
   imu->flushFIFOs();
 
   // Ejecutamos el test de los eventos
-  runTestEventosImu();
+  // runTestEventosImu();
+  runVirtualSensorsTest();
 }
 
 void loop() {
   // Lógica principal de tu aplicación (vacía por el momento mientras estamos en test)
-  rtos::ThisThread::sleep_for('1s');
+  rtos::ThisThread::sleep_for(100);
+  loopVirtualSensorsTest();
 }
