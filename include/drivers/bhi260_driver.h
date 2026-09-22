@@ -42,12 +42,12 @@ public:
     void updateFifoData();
     void configureSensor(SensorConfigurationPacket& config);
 
-    // Vacía las FIFOs para forzar el pin de interrupción a LOW
+    // Vacía las FIFOs
     void flushFIFOs();
     
     // Configuración del Host Interface Control (Low Power)
-    void suspendHost();
-    void resumeHost();
+    void disableNonWakeupFIFO();
+    void enableNonWakeupFIFO();
     
     // Validar si el sensor está presente en el firmware del BHI260
     bool hasSensor(uint8_t sensorId);
@@ -81,33 +81,6 @@ public:
     void enableInterrupt();
     void disableInterrupt();
 
-    /**
-     * @brief ISR handler logic to be called when the interrupt triggers.
-     */
-    void handleInterrupt();
-
-    /**
-     * @brief Processes data from the wakeup FIFO.
-     */
-    void updateWakeupFIFO();
-
-    /**
-     * @brief Processes data from the non-wakeup FIFO.
-     */
-    void updateNonWakeupFIFO();
-
-    /**
-     * @brief Checks if the interrupt flag is set.
-     * 
-     * @return true if the interrupt was triggered.
-     */
-    bool isInterruptTriggered() const;
-
-    /**
-     * @brief Clears the interrupt flag.
-     */
-    void clearInterruptFlag();
-
 protected:
     BHI260Driver();
     ~BHI260Driver();
@@ -115,9 +88,6 @@ protected:
 private:
     static BHI260Driver* _instance;
     
-    // Default pin is GPIO13 on the ANNA-B112 module (to be implemented)
     uint32_t _interruptPin;
     void (*_isr_handler)(void);
-    
-    volatile bool _interruptTriggered;
 };

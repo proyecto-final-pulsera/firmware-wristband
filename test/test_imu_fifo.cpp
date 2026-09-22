@@ -4,9 +4,10 @@
 #include "drivers/bhi260_driver.h"
 #include <BoschSensortec.h>
 
-// Handler para la interrupción (resuelto en el test)
+// Variables for interrupt testing
+volatile bool testInterruptTriggered = false;
 void onSensorInterrupt() {
-    BHI260Driver::getInstance()->handleInterrupt();
+    testInterruptTriggered = true;
 }
 
 void runImuFifoTest() {
@@ -34,19 +35,19 @@ void runImuFifoTest() {
     // Vaciamos basura residual de las FIFOs antes de arrancar
     imu->flushFIFOs();
     imuSensor.fifoFlush();
-    imu->clearInterruptFlag();
+    testInterruptTriggered = false;
 
     Serial.println("[DEBUG] Etapa 2/6: Desactivando host (AP Suspend).");
     Serial.println("        -> El MCU no recibira interrupciones de datos normales (Accel).");
     Serial.println("        -> PERO si inclinas la placa (Tilt), deberia disparar la ISR!");
     
-    imu->suspendHost();
+    imu->disableNonWakeupFIFO();
 
     Serial.println("[DEBUG] Etapa 3/6: Esperando 10 segundos. Mové e incliná la placa ahora...");
     // 3. Pasado 10 segundos, monitoreamos el flag
     unsigned long start =  millis();
     while(millis() - start <= 15000){
-        if(imu->isInterruptTriggered()) {
+        if(testInterruptTriggered) {
             imu->disableInterrupt();
             imu->updateFifoData(); 
             Serial.println("[TEST] -> ¡Interrupción disparada detectada por el handler!");
@@ -56,7 +57,7 @@ void runImuFifoTest() {
                 imu->readSensorData(data);
                 Serial.print(data.sensorId);
             }
-            imu->clearInterruptFlag();
+            testInterruptTriggered = false;
             imu->enableInterrupt();
         }
         delay(100);
@@ -64,7 +65,7 @@ void runImuFifoTest() {
 
     Serial.println("[DEBUG] Etapa 4/6: Despertando host (AP Resume) para permitir lectura masiva...");
     // 4. Indicamos al sensor que el host está despierto
-    imu->resumeHost();
+    imu->enableNonWakeupFIFO();
 
     Serial.println("[DEBUG] Etapa 5/6: Parseando los datos acumulados de la FIFO fisica...");
     imu->updateFifoData(); 
@@ -122,14 +123,14 @@ void runFifoDepthTest() {
     Serial.println("[DEBUG] Etapa 2: Apagando host y esperando 10 SEGUNDOS...");
     Serial.println("        -> Esto forzará el desborde del buffer interno del BHI260.");
     
-    imu->suspendHost();
+    imu->disableNonWakeupFIFO();
     
     // Esperamos 10 segundos
     // En 10 segundos a 800 Hz = 8000 muestras
     delay(10000);
 
     Serial.println("[DEBUG] Etapa 3: Despertando host y parseando TODO el buffer...");
-    imu->resumeHost();
+    imu->enableNonWakeupFIFO();
     
     // La función interna de Bosch (bhy2_get_and_process_fifo) ya tiene un ciclo while
     // interno que lee bloques del tamaño del work_buffer (2048b) y los parsea
@@ -141,7 +142,7 @@ void runFifoDepthTest() {
     Serial.println(imuSensor.getTotalPushed());
     
     // Apagamos todo
-    imu->suspendHost();
+    imu->disableNonWakeupFIFO();
     imuSensor.end();
     
     Serial.println("================================================\n");

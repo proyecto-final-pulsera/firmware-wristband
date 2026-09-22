@@ -69,6 +69,35 @@ public:
     uint16_t getAvailableCount() const;
 
     /**
+     * @brief Indica si el buffer circular está lleno.
+     */
+    bool isFull() const;
+
+    /**
+     * @brief Indica si el buffer ha sobrescrito datos (overflow) desde la última limpieza.
+     */
+    bool hasOverflowed() const;
+
+    /**
+     * @brief Limpia el flag de overflow.
+     */
+    void clearOverflow();
+
+    /**
+     * @brief Retrocede el índice de lectura (tail) para "recuperar" datos que ya fueron extraídos (popped).
+     * @param steps Cantidad de datos a recuperar.
+     * @return La cantidad real de datos recuperados (puede ser menor a steps si no hay suficiente historial).
+     */
+    uint16_t rewind(uint16_t steps);
+
+    /**
+     * @brief Permite acceder a un elemento específico del buffer sin copiarlo.
+     * @param index Índice lógico (0 es el dato más antiguo, getAvailableCount()-1 es el más nuevo).
+     * @return Puntero constante al dato, o nullptr si el índice está fuera de rango.
+     */
+    const DataXYZ* getElementAt(uint16_t index) const;
+
+    /**
      * @brief Extrae todos los datos actuales de la FIFO en bloque.
      * @param buffer Puntero a un array provisto por el usuario donde se copiarán los datos.
      * @param maxLen Capacidad del buffer provisto (para evitar buffer overflow).
@@ -85,6 +114,7 @@ private:
     uint16_t _head;   // Índice donde se insertará el próximo elemento
     uint16_t _tail;   // Índice del elemento más antiguo para extraer
     uint16_t _count;  // Cantidad de elementos actuales
+    bool _overflow;   // Flag para saber si se pisaron datos
     DataXYZ _lastData;// Mantiene el último dato para toString()
     
     uint32_t _totalPushed; // Temporario para medir la profundidad de HW
