@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "BoschSensortec.h"
+#include "sensors/SensorID.h"
 
 /**
  * @brief Driver class for the BHI260AP sensor.
@@ -12,20 +13,10 @@
  * inside the `BoschSensortec` class (in the Arduino_BHY2 library).
  * This grants access to the internal `_bhy2` structure.
  */
-// --- IDs de Sensores Físicos y Virtuales (Comunes) ---
-#define SENSOR_ID_ACCEL           1
-#define SENSOR_ID_ACCEL_CORRECTED 4
-#define SENSOR_ID_TILT_DETECTOR   48
-#define SENSOR_ID_STEP_COUNTER    53
-#define SENSOR_ID_SIGNIFICANT_MOT 55
-#define SENSOR_ID_WAKE_GESTURE    57
-#define SENSOR_ID_GLANCE_GESTURE  59
-#define SENSOR_ID_PICKUP_GESTURE  61
-#define SENSOR_ID_WRIST_TILT      67
-#define SENSOR_ID_DEVICE_ORI      70
-#define SENSOR_ID_STATIONARY_DET  75
-#define SENSOR_ID_MOTION_DET      77
-#define SENSOR_ID_STEP_DETECTOR   94
+// IDs de Sensores Físicos y Virtuales (Comunes)
+// Se eliminaron las macros manuales (#define SENSOR_ID_...) porque ya están
+// declaradas nativamente como un `enum` en la librería Arduino_BHY2 (sensors/SensorID.h),
+// y mantenerlas causaba un conflicto (error "expected identifier before numeric constant").
 
 class BHI260Driver {
 public:

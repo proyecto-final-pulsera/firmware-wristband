@@ -20,13 +20,13 @@ void runVirtualSensorsTest() {
 
   // Array de sensores a probar
   uint8_t testSensors[] = {
-      SENSOR_ID_STEP_COUNTER, 
-      SENSOR_ID_STEP_DETECTOR, 
+      SENSOR_ID_STC, 
+      SENSOR_ID_STD, 
       SENSOR_ID_TILT_DETECTOR, 
       SENSOR_ID_WAKE_GESTURE, 
       SENSOR_ID_GLANCE_GESTURE, 
       SENSOR_ID_PICKUP_GESTURE, 
-      SENSOR_ID_WRIST_TILT, 
+      SENSOR_ID_WRIST_TILT_GESTURE, 
       SENSOR_ID_DEVICE_ORI, 
       SENSOR_ID_STATIONARY_DET, 
       SENSOR_ID_MOTION_DET
@@ -64,13 +64,13 @@ void loopVirtualSensorsTest() {
     if (imu_test_ptr->readSensorData(data)) {
       
       switch (data.sensorId) {
-        case SENSOR_ID_STEP_COUNTER: Serial.println(">>> EVENTO 53: Step Counter Wakeup!"); break;
-        case SENSOR_ID_STEP_DETECTOR: Serial.println(">>> EVENTO 94: Step Detector Wakeup!"); break;
+        case SENSOR_ID_STC: Serial.println(">>> EVENTO 53: Step Counter Wakeup!"); break;
+        case SENSOR_ID_STD: Serial.println(">>> EVENTO 94: Step Detector Wakeup!"); break;
         case SENSOR_ID_TILT_DETECTOR: Serial.println(">>> EVENTO 48: Tilt Detector!"); break;
         case SENSOR_ID_WAKE_GESTURE: Serial.println(">>> EVENTO 57: Wake Gesture!"); break;
         case SENSOR_ID_GLANCE_GESTURE: Serial.println(">>> EVENTO 59: Glance Gesture!"); break;
         case SENSOR_ID_PICKUP_GESTURE: Serial.println(">>> EVENTO 61: Pickup Gesture!"); break;
-        case SENSOR_ID_WRIST_TILT: Serial.println(">>> EVENTO 67: Wrist Tilt Gesture!"); break;
+        case SENSOR_ID_WRIST_TILT_GESTURE: Serial.println(">>> EVENTO 67: Wrist Tilt Gesture!"); break;
         case SENSOR_ID_DEVICE_ORI: Serial.println(">>> EVENTO 70: Device Orientation Wakeup!"); break;
         case SENSOR_ID_STATIONARY_DET: Serial.println(">>> EVENTO 75: Stationary Detect!"); break;
         case SENSOR_ID_MOTION_DET: Serial.println(">>> EVENTO 77: Motion Detect!"); break;
@@ -81,7 +81,7 @@ void loopVirtualSensorsTest() {
       // Excluimos solo 53 (Counter) y 70 (Orientation) que no envían PEVENT.
       if( data.sensorId == SENSOR_ID_MOTION_DET) enableTestSensor(SENSOR_ID_STATIONARY_DET);
       if( data.sensorId == SENSOR_ID_STATIONARY_DET) enableTestSensor(SENSOR_ID_MOTION_DET);
-      if (data.sensorId != SENSOR_ID_STEP_COUNTER 
+      if (data.sensorId != SENSOR_ID_STC 
         && data.sensorId != SENSOR_ID_DEVICE_ORI
         && data.sensorId != SENSOR_ID_STATIONARY_DET
         && data.sensorId != SENSOR_ID_MOTION_DET

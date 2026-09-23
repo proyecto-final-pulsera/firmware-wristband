@@ -16,8 +16,8 @@ Se decidió implementar una clase `BHI260Driver` utilizando el patrón Singleton
 * **Solución Crítica:** Se implementó el método `flushFIFOs()` en el driver. Al final del `setup()`, justo después de atar la interrupción, vaciamos por completo cualquier paquete inicial en el BHI260AP. Esto obliga al sensor a bajar físicamente la línea D14 a `LOW`, garantizando que el próximo dato genere un flanco de subida limpio y active la interrupción de Arduino sin problemas.
 
 ### 2.2 Host Interface Control y Bajo Consumo (Modo Suspend)
-Para dormir el MCU sin perder eventos críticos, se implementaron los métodos `suspendHost()` y `resumeHost()`. Estos escriben en el registro `BHY2_HIF_CTRL_AP_SUSPENDED`.
-* **Mecanismo:** Al poner AP Suspended en 1, el BHI260AP enmascara los datos regulares (Non-Wakeup FIFO) para que **no disparen el pin de interrupción**. El sensor acumula los datos físicamente, pero solo levantará la línea de interrupción (despertando al micro) si ocurre un evento crítico configurado como "Wakeup" (ej. Gestos, Doble Toque).
+Para dormir el MCU sin perder eventos críticos, se implementaron los métodos `disableNonWakeupFIFO()` y `enableNonWakeupFIFO()` (antes llamados suspend/resume). Estos escriben en el registro `BHY2_HIF_CTRL_AP_SUSPENDED`.
+* **Mecanismo:** Al apagar el recolector de FIFO Non-Wakeup, el BHI260AP enmascara los datos regulares para que **no disparen el pin de interrupción**. El sensor acumula los datos físicamente, pero solo levantará la línea de interrupción (despertando al micro) si ocurre un evento crítico configurado como "Wakeup" (ej. Gestos, Doble Toque).
 
 ## 3. Notas de Sensores y Machine Learning (BSX)
 
@@ -54,25 +54,49 @@ Durante el desarrollo de buffers grandes (ej. FIFO interna de 500 datos), se det
 
 ## 5. Limitaciones de Acceso a Datos y la FIFO
 
-### 5.1 El motor de parseo privado (`static`) de Bosch
-Durante el desarrollo se intentó crear dos métodos en `BHI260Driver` (`updateWakeupFifo` y `updateNonWakeupFifo`) para que el usuario pudiera vaciar y procesar de forma selectiva solo la cola de interrupciones Wakeup o solo la cola de datos en background (Non-Wakeup).
-* **El Problema:** La función en C de la API de Bosch que convierte los bytes crudos (SPI/I2C) en objetos comprensibles se llama `parse_fifo()`. Los ingenieros de Bosch declararon esta función (y varias de sus dependencias) como **`static`** dentro del archivo `bhy2.c`. Esto significa que el compilador aísla la función y la hace 100% privada e inaccesible desde cualquier código externo (como nuestro driver C++).
-* **Solución Implementada:** Se desestimó la idea de editar el código fuente de la librería del fabricante para evitar problemas de compatibilidad y la necesidad de mantener un "fork" manual. En su lugar, se mantiene el uso del método nativo `updateFifoData()`, el cual utiliza por debajo `bhy2_get_and_process_fifo()` para drenar y parsear todo en un solo barrido masivo directo del hardware. Si la aplicación requiere filtrar (descartar) un tipo de dato mientras extrae otro, se acordó realizar ese descarte por software (mediante flags booleanos en los métodos `pop()` y `push()` de la clase interna del sensor).
+### 5.1 Latencias Compartidas y el Sabotaje del Batching (Multi-Sensor)
+Una de las confusiones más grandes de la arquitectura del BHI260 surge al combinar múltiples sensores en la misma cola (Non-Wakeup FIFO).
+* **El Problema del IRQ compartido:** Si se configuran varios sensores con alta latencia (ej. 5 segundos) pero **uno solo de ellos** se configura con latencia `0` (ej. Temperatura a 1 Hz, latency=0), este sensor dominará el comportamiento del chip. En este ejemplo, el sensor de Temperatura forzará la generación de una interrupción física cada 1 segundo (ignorando las latencias largas de los otros sensores).
+* **Bloqueo del Update (updateFifoData es Total):** Al atender la interrupción y llamar a `bhi->updateFifoData()`, **el BHI260 vacía TODO el contenido de la FIFO de hardware de forma bloqueante**, sin importar de qué sensor provenga. Como resultado, la IMU y la Presión escupirán los datos del último segundo en lugar de esperar a juntar los 5 segundos de latencia que tenían asignados originalmente.
+* **Conclusión:** La lectura de datos en FIFO (Data Batching) deja de ser uniforme (se generan "micro-ráfagas" por culpa de otros sensores). Para testear o aprovechar la latencia real, **todos** los sensores concurrentes deben configurarse con latencia alta.
 
-### 5.2 Efectos colaterales del Host Suspend y Tiempos de Refresco
-Durante el desarrollo del sistema de lectura por lotes (Batching con AP Suspend), se descubrió que el registro `BHY2_HIF_CTRL_AP_SUSPENDED` altera el comportamiento interno de la función `bhy2_get_and_process_fifo()` de la API de Bosch.
-* **Comportamiento Específico:** 
-  * Si el host está **suspendido** (`suspendHost()`, o `AP Suspend = 1`), invocar el parseo *únicamente* extrae y parsea los datos pertenecientes a la **Wakeup FIFO** (los eventos críticos). El microcontrolador ignora la **Non-Wakeup FIFO** por completo, protegiéndola.
-  * Si el host está **despierto** (`resumeHost()`, o `AP Suspend = 0`), el parseo extrae **ambas FIFOs**, trayendo finalmente toda la data regular acumulada (ej. paquetes del acelerómetro de background).
-* **Delay Mandatorio Post-Despertar:** Se descubrió que luego de mandar la señal de `resumeHost()`, el chip BHI260AP demora en reconfigurar sus canales internos. **Si se intenta vaciar la FIFO inmediatamente después del resume, la Non-Wakeup FIFO retorna vacía (cero datos).**
-* **Solución Implementada:** Se incrustó un `delay(10)` mandatorio directamente dentro del método `BHI260Driver::resumeHost()` para garantizar que cuando el firmware vuelva al main thread y ejecute `updateFifoData()`, la matriz de Bosch ya tenga las colas de memoria disponibles para su vaciado masivo.
+### 5.2 Capacidad Real de Extracción de Datos
+A diferencia de otros drivers, el método base `bhy2_get_and_process_fifo` (usado internamente por `updateFifoData()`) **no tiene límite de extracción**. 
+* **Bucle Oculto:** Aunque se procesen "chunks" (bloques) usando un buffer de memoria RAM interno (ej. de 1024 bytes), el algoritmo itera en un bucle `while (fifos.remain_length)` hasta drenar absolutamente toda la memoria del sensor Bosch en esa misma llamada.
+* **Precaución:** Como este método es totalmente bloqueante y ejecuta hasta vaciar todo el histórico acumulado, puede demorar bastantes milisegundos si la latencia del sensor era alta y se acumularon miles de bytes (por ejemplo, 5 segundos de IMU).
 
-*Documento actualizado durante la fase de optimización de memoria e integraciones.*
-
-### 5.3 Prueba de FIFO Exitosa
-Se ejecutó con éxito el test `runImuFifoTest()`, validando correctamente que al configurar un sensor (Tilt Detector) en la Wakeup FIFO y entrar en modo `AP Suspend`, el microcontrolador deja de recibir interrupciones por datos regulares del acelerómetro y solo despierta ante el evento físico deseado. El `resumeHost()` y posterior `updateFifoData()` demostró poder extraer todo el historial de fondo sin problemas.
+### 5.3 Estado Retenido de las Interrupciones (IRQ)
+Las interrupciones (línea D14) del BHI260 están manejadas por nivel.
+* **Desactivar IRQs por Software:** Si en el código se deshabilitan temporalmente las interrupciones (ej: `bhi->disableInterrupt()`) y durante ese tiempo el sensor levanta la línea física avisando que hay datos, el hardware se quedará "trabado" en estado ALTO.
+* **Limpieza Obligatoria:** Si el sensor levantó el IRQ, no va a volver a generar un flanco (que es lo que Mbed necesita para disparar el callback) hasta que la FIFO sea leída. Es imperativo procesar y vaciar la FIFO explícitamente ("procesar para limpiar la IRQ") antes de re-habilitar la escucha, de lo contrario la línea nunca baja y se pierden los eventos futuros.
 
 ### 5.4 Capacidad real de la FIFO de Hardware (Depth Test)
 Mediante el test `runFifoDepthTest()`, forzando el desborde a alta frecuencia (800 Hz) con el Host suspendido, se determinó de forma empírica la capacidad máxima real de almacenamiento del sensor. 
 * **Resultado:** El buffer interno (Non-Wakeup FIFO) del BHI260AP soporta un máximo de **2022 muestras** continuas de acelerómetro antes de empezar a sobrescribir o descartar datos viejos.
 * **Cálculo de Memoria:** Siendo que cada paquete de acelerómetro ocupa 7 bytes (1 de cabecera/ID + 6 de payload X, Y, Z), se confirma que la capacidad de memoria física asignada a la FIFO dentro del hardware de Bosch ronda los **14,154 bytes** (aprox. 14 KB).
+
+---
+
+## 6. Batería de Pruebas (Testing Suite)
+
+Durante el desarrollo se crearon distintos entornos aislados de prueba (en la carpeta `/test/`) para validar funciones específicas del hardware y del software antes de integrarlas al `main`. A continuación se detalla qué hace y qué demuestra cada test:
+
+### 6.1 `test_virtual_sensors.cpp`
+* **Objetivo:** Explorar y validar el comportamiento lógico de todos los sensores virtuales (Gestos) disponibles en el BHI260.
+* **Funcionamiento:** Se suscriben múltiples sensores de evento (como *Step Counter*, *Wrist Tilt*, *Device Orientation*, etc.). En el bucle principal se hace un barrido continuo y se loguea por puerto serie qué evento saltó y con qué ID. Adicionalmente, implementa una lógica de auto-suscripción cruzada (si detecta *Motion* prende el *Stationary*, y viceversa).
+* **Qué prueba:** Demuestra cómo interactúan los eventos de "One-Shot" (que se apagan solos al dispararse) y cómo la inteligencia artificial de Bosch clasifica los movimientos reales frente a la especificación estándar (AOSP).
+
+### 6.2 `test_eventos_imu.cpp`
+* **Objetivo:** Poner a prueba la integración de los gestos mediante el modo "Host Suspend" utilizando nuestro `BHI260Driver`.
+* **Funcionamiento:** Se configuran eventos específicos en la **Wakeup FIFO**. Luego se suspende el flujo de datos principal. Cuando el sensor detecta el gesto (ej. Giro de muñeca), despierta físicamente al microcontrolador a través del pin de interrupción.
+* **Qué prueba:** Valida que el mecanismo de interrupción Wakeup funciona correctamente y que el microcontrolador puede ignorar el ruido (sensores de background) manteniéndose en reposo, consumiendo energía únicamente cuando el usuario realiza el evento esperado.
+
+### 6.3 `test_imu_fifo.cpp`
+* **Objetivo:** Testear al extremo la memoria interna de la IMU, la sobreescritura de los buffers, el "Watermark" y los límites físicos.
+* **Funcionamiento:** Este test arranca la IMU a una frecuencia altísima (ej. 800 Hz) y duerme intencionalmente al microcontrolador sin leer la FIFO, forzando un cuello de botella. Luego, despierta al micro y extrae toda la memoria de golpe.
+* **Qué prueba:** Sirvió empíricamente para descubrir que la RAM interna de la Non-Wakeup FIFO soporta hasta ~14 KB de datos. También probó el sistema de prevención de desbordes (Watermark Interrupt) del Bosch y verificó que nuestra clase C++ (Buffer Circular Wrapper) sabe lidiar correctamente con el desborde sobrescribiendo los datos más viejos mediante `isFull()` y `hasOverflowed()`.
+
+### 6.4 `test_sensors_drivers.cpp` (El Test de Integración Multi-Sensor)
+* **Objetivo:** Validar la coexistencia pacífica y orquestada de **todos** los sensores (IMU, Presión, Temperatura y Gestos) utilizando un único sistema de interrupciones.
+* **Funcionamiento:** Instancia las clases Wrapper creadas (`ImuSensorDriver`, `PressureSensorDriver`, `TemperatureSensorDriver`, `EventSensorDriver`). Arranca inicialmente con la FIFO continua suspendida. Si un evento de *Motion* (Any Motion Wake-Up) despierta a la placa, automáticamente se habilita la FIFO Non-Wakeup, y las clases wrapper empiezan a acumular y vaciar los datos de la IMU y Barómetro. Si se detecta un evento *Stationary*, se vuelve a dormir el flujo.
+* **Qué prueba:** Demuestra la arquitectura final que usará la pulsera. Prueba que una sola sub-rutina de interrupción (`isrFlag`) es capaz de vaciar el hardware de Bosch por completo de forma agnóstica, rellenando ordenadamente los buffers individuales de cada driver de aplicación y permitiendo encender/apagar el modo ráfaga según el estado físico del usuario para maximizar el ahorro de batería.

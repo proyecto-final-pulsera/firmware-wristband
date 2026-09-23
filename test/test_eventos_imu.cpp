@@ -47,10 +47,10 @@ void runTestEventosImu() {
     menuDebug.clear();
     
     uint8_t targetSensors[] = {
-        SENSOR_ID_STEP_DETECTOR, 
+        SENSOR_ID_STD, 
         SENSOR_ID_STATIONARY_DET, 
         SENSOR_ID_DEVICE_ORI, 
-        SENSOR_ID_WRIST_TILT
+        SENSOR_ID_WRIST_TILT_GESTURE
     };
     
     for (int i = 0; i < 4; i++) {
@@ -70,7 +70,7 @@ void runTestEventosImu() {
             SensorDataPacket data;
             if (imu->readSensorData(data)) {
                 switch (data.sensorId) {
-                    case SENSOR_ID_STEP_DETECTOR:
+                    case SENSOR_ID_STD:
                         menuDebug.logEvent("Step Detector");
                         enableTestSensor(data.sensorId); // One-shot auto-rearm
                         break;
@@ -82,7 +82,7 @@ void runTestEventosImu() {
                         menuDebug.logEvent("Device Orientation");
                         // On-change, no re-arm needed
                         break;
-                    case SENSOR_ID_WRIST_TILT:
+                    case SENSOR_ID_WRIST_TILT_GESTURE:
                         menuDebug.logEvent("Wrist Tilt");
                         enableTestSensor(data.sensorId); // One-shot auto-rearm
                         break;

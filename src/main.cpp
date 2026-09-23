@@ -6,6 +6,7 @@
 #include "rtos.h"
 #include "test_eventos_imu.h"
 #include "test_virtual_sensors.h"
+#include "../test/test_sensors_drivers.h"
 BatteryDriver* battery;
 BHI260Driver* imu;
 
@@ -47,13 +48,12 @@ void setup() {
 
   // Instanciamos el driver del vibrador para que el pin Enable arranque en LOW
   VibratorDriver::createInstance();
-  // Ejecutamos el test de los eventos
-  // runTestEventosImu();
-  runVirtualSensorsTest();
+  
+  // Ejecutamos el test multi-sensor
+  runSensorsDriversTest();
 }
 
 void loop() {
   // Lógica principal de tu aplicación (vacía por el momento mientras estamos en test)
   rtos::ThisThread::sleep_for(100);
-  loopVirtualSensorsTest();
 }

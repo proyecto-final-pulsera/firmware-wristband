@@ -1,7 +1,7 @@
 #include "drivers/imu_sensor_driver.h"
 
 ImuSensorDriver::ImuSensorDriver() 
-    : SensorClass(SENSOR_ID_ACCEL), 
+    : SensorClass(SENSOR_ID_ACC_PASS), 
       _head(0), _tail(0), _count(0), _overflow(false), _totalPushed(0)
 {
     // Constructor llama al padre SensorClass pasándole el ID de Acelerómetro
@@ -39,7 +39,7 @@ void ImuSensorDriver::fifoFlush() {
     _tail = 0;
     _count = 0;
     _overflow = false;
-    _totalPushed = 0;
+    // _totalPushed = 0;
     clearDataAvailFlag();
 }
 
