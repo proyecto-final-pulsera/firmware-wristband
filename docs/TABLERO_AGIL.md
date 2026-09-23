@@ -3,7 +3,11 @@
 Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint backlog) para desarrollar el firmware correctamente. Iremos marcando las tareas a medida que las completemos.
 
 ## Sprint Actual
-*Actualmente sin tareas activas. (Sprint finalizado).*
+
+- [ ] **Tarea 16 (Original 3): Driver de comunicación (Bypass Serie + Protocolo)**
+  - **Tiempo estimado:** 7 horas
+  - **Descripción:** Definir métodos del driver y proveer un bypass para transmitir por puerto serie en lugar de BLE. Se debe implementar un protocolo de tramas simple (ej. `[START] [TIPO] [PAYLOAD] [CHECKSUM]`). Crear script en Python para recibir y parsear.
+  - **Criterio de aceptación:** Enviar datos del acelerómetro y barómetro por serie de forma transparente al sistema y poder verlos parseados en el script de Python.
 
 ## Sprints Previos (Tareas Completadas)
 
@@ -54,11 +58,6 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 ---
 
 ## 3. Backlog (Próximos Sprints)
-
-### 3. Driver de comunicación (Bypass Serie + Protocolo)
-* **Tiempo estimado:** 7 horas
-* **Descripción:** Definir métodos del driver y proveer un bypass para transmitir por puerto serie en lugar de BLE. Se debe implementar un protocolo de tramas simple (ej. `[START] [TIPO] [PAYLOAD] [CHECKSUM]`). Crear script en Python para recibir y parsear.
-* **Criterio de aceptación:** Enviar datos del acelerómetro y barómetro por serie de forma transparente al sistema y poder verlos parseados en el script de Python.
 
 ### 4. Mecanismos de comunicación entre tareas
 * **Tiempo estimado:** 3 horas
@@ -171,3 +170,8 @@ Transmisión de payloads de sensores (Notifications).
   - Utilizar ventana deslizante (`getElementAt`) con solapamiento del 50%.
   - Implementar flag de OVERRUN para escaneo profundo en caso de retraso.
   - Evaluar encapsular el procesamiento matemático del algoritmo de caída directamente dentro de `ImuSensorDriver`.
+- **Arquitectura de Envío de Datos (Snapshot Buffer):**
+  - Para evitar perder datos por la latencia de transmisión (BLE/Serial), **NO** se bloqueará el buffer circular de los sensores.
+  - La Capa de Tareas (Capa de Aplicación / Processing Task) debe ser dueña de una estructura de memoria estática (`FallSnapshot` ~12KB) para congelar la "foto" del evento.
+  - Al detectar la caída, la Tarea copia con `memcpy` ambos sensores a esta estructura en < 1ms y manda los punteros a la Queue.
+  - El driver `CommDriver` es 100% agnóstico y **no posee buffers internos de TX** para almacenar el evento; solo recibe el puntero al Snapshot provisto por la Tarea y lo transmite.
