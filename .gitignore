@@ -3,7 +3,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-*SPRINT_BACKLOG.md
-# Backlogs generados
-*firmware_backlog.md
-*epics_sistema.md
+# Documentación de proyecto (No ignorar los .md)
+
+# Ignorar logs de chat privados
+docs/chat_log_pipeline_raw.md
