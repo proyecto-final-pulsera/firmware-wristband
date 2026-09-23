@@ -75,6 +75,12 @@ Mediante el test `runFifoDepthTest()`, forzando el desborde a alta frecuencia (8
 * **Resultado:** El buffer interno (Non-Wakeup FIFO) del BHI260AP soporta un máximo de **2022 muestras** continuas de acelerómetro antes de empezar a sobrescribir o descartar datos viejos.
 * **Cálculo de Memoria:** Siendo que cada paquete de acelerómetro ocupa 7 bytes (1 de cabecera/ID + 6 de payload X, Y, Z), se confirma que la capacidad de memoria física asignada a la FIFO dentro del hardware de Bosch ronda los **14,154 bytes** (aprox. 14 KB).
 
+### 5.5 Parametrización de Buffers Circulares (Drivers)
+Para evitar hardcodear números mágicos en el tamaño de los arreglos estáticos de los drivers C++ (como `imuDriver` o `pressureDriver`) y prevenir desbordamientos, se optó por parametrizar el tamaño de los buffers circulares en base al tiempo físico que se desea retener en memoria.
+* **Fórmula Implementada:** `TAMAÑO_FIFO = (FRECUENCIA_HZ * SEGUNDOS_DE_RETENCION)`.
+* **Beneficio:** Mediante macros globales (`FREQ_IMU`, `LEN_BUFFER_IMU_SEG`, etc.) definidas en los headers de cada driver, el compilador calcula automáticamente cuántos slots de memoria se necesitan. Por ejemplo, para retener **16 segundos** de datos de un acelerómetro corriendo a **50 Hz**, el buffer se dimensiona automáticamente en **800** posiciones.
+* **Latencia vs Capacidad de Buffer:** Es importante destacar que el valor de latencia (latency) configurado en el sensor de hardware *no dicta ni debe ser igual* al tiempo de retención del buffer de software. El buffer de software existe para retener el historial y permitir que el hilo de procesamiento trabaje desacoplado, a su propio ritmo. Si el buffer es lo suficientemente grande (ej. 16 segundos), soporta que el hardware interrumpa múltiples veces (ej. latencias cortas) sin perder los datos viejos antes de que la tarea de fondo (pipeline) logre procesarlos.
+
 ---
 
 ## 6. Batería de Pruebas (Testing Suite)

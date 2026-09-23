@@ -5,14 +5,14 @@
 
 // Fallbacks in case they are not defined globally
 #ifndef FREQ_PRESSURE
-#define FREQ_PRESSURE 10
+#define FREQ_PRESSURE 16
 #endif
 
-#ifndef LEN_BUFFER_SENSOR_SEG
-#define LEN_BUFFER_SENSOR_SEG 10
+#ifndef LEN_BUFFER_PRESSURE_SEG
+#define LEN_BUFFER_PRESSURE_SEG 16
 #endif
 
-#define PRESSURE_FIFO_SIZE (FREQ_PRESSURE * LEN_BUFFER_SENSOR_SEG)
+#define PRESSURE_FIFO_SIZE (FREQ_PRESSURE * LEN_BUFFER_PRESSURE_SEG)
 
 /**
  * @brief Driver de alto nivel para el sensor de Presión (Barómetro) heredado de SensorClass.

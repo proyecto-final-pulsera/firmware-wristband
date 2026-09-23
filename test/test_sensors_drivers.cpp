@@ -27,7 +27,7 @@ void runSensorsDriversTest() {
     // 1. Instanciar todos los drivers (Static para no desbordar el stack del main)
     static ImuSensorDriver imuDriver;
     static PressureSensorDriver pressureDriver;
-    // static TemperatureSensorDriver tempDriver;
+    static TemperatureSensorDriver tempDriver;
     
     // Instanciamos los de evento (WAKE UP)
     static EventSensorDriver motionEvent(SENSOR_ID_MOTION_DET);
@@ -35,9 +35,9 @@ void runSensorsDriversTest() {
 
     // 2. Configurar y encender los sensores en el BHI260
     Serial.println("[DEBUG] Configurando Sensores Continuos (NON WAKE-UP)...");
-    imuDriver.begin(50.0f, 10000);       // IMU a 50Hz
-    pressureDriver.begin(10.0f, 25000);  // Barómetro a 10Hz
-    // tempDriver.begin(1.0f, 0);       // Temperatura a 1Hz
+    imuDriver.begin((float)FREQ_IMU, 3000);       // IMU a 50Hz, 3s latencia
+    pressureDriver.begin((float)FREQ_PRESSURE,(uint32_t) -1);  // Barómetro a 16Hz, no interrumpe
+    tempDriver.begin(1.0f,(uint32_t) -1);       // Temperatura a 1Hz
 
     Serial.println("[DEBUG] Configurando Sensores de Evento (WAKE-UP)...");
     motionEvent.begin(1.0f, 0);
@@ -91,6 +91,9 @@ void runSensorsDriversTest() {
             if (motionEvent.hasEventOccurred()) {
                 Serial.println("[EVENTO] -> MOTION DETECTADO!");
                 motionEvent.clearEventFlag();
+                noMotionEvent.begin(1.0f, 0);
+                
+    
                 
                 // Si detecta movimiento, despertamos (activamos la lectura Non-WakeUp)
                 if (!isNonWakeupActive) {
@@ -106,6 +109,7 @@ void runSensorsDriversTest() {
             if (noMotionEvent.hasEventOccurred()) {
                 Serial.println("[EVENTO] -> NO MOTION (Stationary) DETECTADO!");
                 noMotionEvent.clearEventFlag();
+                motionEvent.begin(1.0f, 0);
                 
                 // Si la placa se queda quieta, volvemos a suspender los datos continuos para ahorrar batería
                 if (isNonWakeupActive) {
@@ -134,9 +138,10 @@ void runSensorsDriversTest() {
             }
 
             //Consumimos temperatura si hay nueva para limpiar su flag
-            // if (tempDriver.isUpdated()) {
-            //     tempDriver.getTemp();
-            // }
+            if (tempDriver.isUpdated()) {
+                Serial.print("Temperatura Actualizada: ");
+                Serial.println(tempDriver.getTemp());
+            }
             
             
             //bhi->enableInterrupt();

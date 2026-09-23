@@ -3,8 +3,17 @@
 #include "sensors/SensorClass.h"
 #include "drivers/bhi260_driver.h"
 
+// Fallbacks in case they are not defined globally
+#ifndef FREQ_IMU
+#define FREQ_IMU 50
+#endif
+
+#ifndef LEN_BUFFER_IMU_SEG
+#define LEN_BUFFER_IMU_SEG 16
+#endif
+
 // Capacidad máxima de la FIFO circular para el IMU
-#define IMU_FIFO_SIZE 500
+#define IMU_FIFO_SIZE (FREQ_IMU * LEN_BUFFER_IMU_SEG)
 
 /**
  * @brief Driver de alto nivel para el sensor IMU (Acelerómetro) heredado de SensorClass.
