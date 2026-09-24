@@ -2,16 +2,59 @@
 
 Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint backlog) para desarrollar el firmware correctamente. Iremos marcando las tareas a medida que las completemos.
 
-## Sprint Actual
+## Sprint Actual (24/09/2026)
 
-- [ ] **Tarea 16 (Original 3): Driver de comunicación (Bypass Serie + Protocolo)**
+- [X] **Tarea 16 (Original 3): Driver de comunicación (Bypass Serie + Protocolo)**
+
   - **Tiempo estimado:** 7 horas
   - **Descripción:** Definir métodos del driver y proveer un bypass para transmitir por puerto serie en lugar de BLE. Se debe implementar un protocolo de tramas simple (ej. `[START] [TIPO] [PAYLOAD] [CHECKSUM]`). Crear script en Python para recibir y parsear.
   - **Criterio de aceptación:** Enviar datos del acelerómetro y barómetro por serie de forma transparente al sistema y poder verlos parseados en el script de Python.
+- [X] **Tarea 17: Comunicación de Temperatura**
+
+  - **Descripción:** Implementar el envío de datos de temperatura a través del driver de comunicación utilizando el protocolo de tramas definido.
+  - **Criterio de aceptación:** Los datos de temperatura se transmiten correctamente por serie con el formato de trama correspondiente.
+- [X] **Tarea 18: Validación de Comunicación de Temperatura**
+
+  - **Descripción:** Verificar que los datos de temperatura recibidos en el script de Python coincidan con los valores leídos por el sensor. Validar integridad de trama (checksum) y parseo correcto.
+  - **Criterio de aceptación:** El script Python muestra los valores de temperatura parseados correctamente y sin errores de integridad.
+- [X] **Tarea 19: Comunicación de Métricas**
+
+  - **Descripción:** Implementar el envío de métricas del sistema (batería, estado, etc.) a través del driver de comunicación utilizando el protocolo de tramas definido.
+  - **Criterio de aceptación:** Las métricas se transmiten correctamente por serie con el formato de trama correspondiente.
+- [X] **Tarea 20: Validación de Comunicación de Métricas**
+
+  - **Descripción:** Verificar que las métricas recibidas en el script de Python coincidan con los valores reales del sistema. Validar integridad de trama y parseo correcto.
+  - **Criterio de aceptación:** El script Python muestra las métricas parseadas correctamente y sin errores de integridad.
+- [X] **Tarea 21: Comunicación de Keep Alive**
+
+  - **Descripción:** Implementar el envío periódico de un mensaje de keep alive a través del driver de comunicación, para que el receptor confirme que la pulsera sigue activa y conectada.
+  - **Criterio de aceptación:** El mensaje de keep alive se transmite periódicamente por serie con el formato de trama correspondiente.
+- [X] **Tarea 22: Validación de Comunicación de Keep Alive**
+
+  - **Descripción:** Verificar que los mensajes de keep alive llegan al script de Python con la periodicidad esperada. Validar integridad de trama y detección de timeout ante desconexión.
+  - **Criterio de aceptación:** El script Python detecta los keep alive periódicos y reporta correctamente si se pierde la comunicación.
+- [X] **Tarea 23: Comunicación de Caída**
+
+  - **Descripción:** Implementar el envío del evento de caída (con su snapshot de datos del buffer) a través del driver de comunicación utilizando el protocolo de tramas definido.
+  - **Criterio de aceptación:** El evento de caída se transmite correctamente por serie con el formato de trama correspondiente, incluyendo el payload de datos del sensor.
+- [ ] **Tarea 24: Validación de Comunicación de Caída**
+
+  - **Descripción:** Verificar que el evento de caída recibido en el script de Python contenga los datos esperados del snapshot. Validar integridad de trama, parseo correcto y que no haya pérdida de datos.
+  - **Criterio de aceptación:** El script Python muestra el evento de caída con todos los datos del snapshot parseados correctamente y sin errores de integridad.
+- [ ] **Tarea 25 (Backlog 4): Mecanismos de comunicación entre tareas**
+
+  - **Tiempo estimado:** 3 horas
+  - **Descripción:** Definir e implementar los mecanismos (colas, semáforos, event groups) basados en la arquitectura de la tarea 1.
+  - **Criterio de aceptación:** Mecanismos del RTOS creados, inicializados y listos para ser utilizados por las tareas.
+- [ ] **Tarea 26: Mecanismos de protección en drivers (escritura y lectura de buffers)**
+
+  - **Descripción:** Implementar protección de concurrencia (mutex, critical sections) en las operaciones de escritura y lectura de los buffers circulares de los drivers de sensores (IMU, presión, temperatura). Garantizar que no existan race conditions entre el thread productor (ISR/recolector) y el consumidor (processing task).
+  - **Criterio de aceptación:** Los buffers de los drivers soportan acceso concurrente sin corrupción de datos. Se puede demostrar que un hilo escribe y otro lee simultáneamente sin errores.
 
 ## Sprints Previos (Tareas Completadas)
 
 ### Sprint 1: Inicialización
+
 - [X] **Tarea 1: Hello World y Verificación de Entorno**
   - Configurar un "Hello World" básico en el `main` del proyecto actual.
   - Incluir todos los headers de los drivers actuales (`#include ...`) en el main.
@@ -28,7 +71,9 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
   - Definir las siguientes funcionalidades a desarrollar e incorporarlas al Backlog.
 
 ### Sprint 2: Independencia de Arduino_BHY2
+
 **Objetivo:** Dejar de depender de la librería `Arduino_BHY2` y manejar los periféricos con drivers propios y clases estáticas del sistema (ej. `nicla`).
+
 - [X] **Tarea 4: Driver de Batería (Parte 1 - Implementación y Prueba base)**
   - Implementar las funciones del driver de batería utilizando los métodos estáticos de la clase `nicla`.
   - Crear un programa en `main.cpp` para leer y probar valores como: detección de batería, estado de carga y nivel de tensión.
@@ -38,7 +83,9 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
   - *(Más adelante integraremos esto en un thread de estado global donde realizaremos este y otros procesos)*.
 
 ### Sprint 3: IMU, Sensor Bosch y Tareas
+
 A continuación, se listan las tareas planificadas para el desarrollo del driver del sensor BHI260AP, el manejo de eventos y notificaciones:
+
 - [X] **Tarea 6:** Definir los métodos para la clase `bhi260_driver` y cómo es su estructura.
 - [X] **Tarea 7:** Modificar `Sensortec` para que exponga `_bhy2` a sus clases derivadas/herencias.
 - [X] **Tarea 8:** Configurar la interrupción del sensor en el microcontrolador. Agregar su handler y comprobar que sea llamado.
@@ -59,46 +106,49 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 
 ## 3. Backlog (Próximos Sprints)
 
-### 4. Mecanismos de comunicación entre tareas
-* **Tiempo estimado:** 3 horas
-* **Descripción:** Definir e implementar los mecanismos (colas, semáforos, event groups) basados en la arquitectura de la tarea 1.
-* **Criterio de aceptación:** Mecanismos del RTOS creados, inicializados y listos para ser utilizados por las tareas.
-
 ### 5. Tarea de comunicación y link (Parte 1)
+
 * **Tiempo estimado:** 4 horas
 * **Descripción:** Implementar el envío de datos de los sensores en la tarea de comunicación.
 * **Criterio de aceptación:** Activar mediante puerto serie los semáforos/queues de envío, y enviar los datos usando el bypass del driver de comunicación.
 
 ### 6. Tarea de alarma y eventos
+
 * **Tiempo estimado:** 5 horas
 * **Descripción:** Atender eventos de caída y botón de pánico. Controlar transiciones de estado según el IMU o el botón.
 * **Criterio de aceptación:** Recibir por puerto serie un print de los eventos generados, verificando que el RTOS permite ejecutar esto con una tarea de menor prioridad corriendo simultáneamente (sin bloqueos).
 
 ### 7. HITO: HW de la pulsera listo para usar
+
 * **Tiempo estimado:** Hito (0 horas de soft)
 * **Descripción:** Carcasa y PCB ensamblados y listos en la muñeca para recolección de datos.
 
 ### 8. Tener muestras de caídas con pulsera
+
 * **Tiempo estimado:** 3 horas
 * **Descripción:** Generar caídas verdaderas y eventos cotidianos capturando los buffers.
 * **Criterio de aceptación:** Dataset preliminar capturado mediante el script de Python.
 
 ### 9. Generar el pipeline para guardar datos en microcontrolador
+
 * **9A. Wake-up y recolección (4 horas):** Implementar la lógica para despertar al micro frente al evento, acceder al buffer y extraer los datos.
 * **9B. Procesamiento y detección (4 horas):** Procesar un buffer (puede ser hardcodeado de una caída real) y validar que la lógica dispare la detección de la caída.
 * **Criterio de aceptación:** El micro despierta, procesa datos y levanta el evento de caída exitosamente.
 
 ### 10. Detección de dispositivo puesto o no
+
 * **Tiempo estimado:** 4 horas
 * **Descripción:** Comprobar si la pulsera está puesta utilizando los algoritmos y features ya integrados internamente en la IMU.
 * **Criterio de aceptación:** El sistema detecta exitosamente el cambio de estado (puesta / sacada) al hacer la prueba física.
 
 ### 11. Tarea de notificaciones y telemetría
+
 * **Tiempo estimado:** 5 horas
 * **Descripción:** Implementar la tarea y sus estados a través de los drivers de hardware correspondientes (buzzer, led, etc.).
 * **Criterio de aceptación:** Tarea CLI temporal que reciba comandos por serie y accione los semáforos para forzar y validar los estados de notificación.
 
 ### 12. Detección de intención de re-emparejamiento
+
 * **Tiempo estimado:** 2 horas
 * **Descripción:** Implementar el método de llamado (ej. mantener botón presionado) para detectar la intención de re-emparejamiento y generar el reseteo del sistema. Nota: Se deja el hook/espacio; el manejo del stack BLE lo implementará otra persona.
 * **Criterio de aceptación:** La acción física accede correctamente a la función base y resetea el sistema.
@@ -110,48 +160,54 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 Estas tareas representan los grandes bloques de trabajo (Epics) que deberán ser refinados y desglosados en tareas más pequeñas y estimables a medida que el proyecto avance.
 
 ### Épica 1: Interacción App Cuidador - Servidor
+
 * **Alcance:** App Móvil / Servidor.
 * **Objetivo:** Conectar la interfaz del cuidador con el backend.
 * **Notas para futuro desglose:**
-Requerirá dividirse en endpoints específicos: Autenticación/Login, Recepción de Alertas en tiempo real (FCM/WebSockets) y Consulta de Estado (batería, conexión de la pulsera).
+  Requerirá dividirse en endpoints específicos: Autenticación/Login, Recepción de Alertas en tiempo real (FCM/WebSockets) y Consulta de Estado (batería, conexión de la pulsera).
 
 ### Épica 2: Seguridad y Gestión de Secretos en la App
+
 * **Alcance:** App Móvil / DevOps.
 * **Objetivo:** Evitar la exposición de datos sensibles (API Keys, configuraciones de base de datos) en el repositorio Git.
 * **Notas para futuro desglose:**
-Implementar variables de entorno (.env).
-Configurar .gitignore.
-Revocar y rotar cualquier clave que ya haya sido pusheada por error en el pasado.
+  Implementar variables de entorno (.env).
+  Configurar .gitignore.
+  Revocar y rotar cualquier clave que ya haya sido pusheada por error en el pasado.
 
 ### Épica 3: Validación del Pipeline de Inferencia
+
 * **Alcance:** Servidor / Machine Learning / Firmware.
 * **Objetivo:** Asegurar que los datos crudos emitidos por la pulsera en tiempo real mantengan la misma calidad, escala y forma que los datos teóricos usados para entrenar el modelo.
 * **Notas para futuro desglose:**
-Armar un script que inyecte un stream de la pulsera (vía serie) hacia la inferencia.
-Comparar estadísticamente (escala, jitter, frecuencia de muestreo) contra el dataset ideal de entrenamiento.
+  Armar un script que inyecte un stream de la pulsera (vía serie) hacia la inferencia.
+  Comparar estadísticamente (escala, jitter, frecuencia de muestreo) contra el dataset ideal de entrenamiento.
 
 ### Épica 4: Expansión del Dataset de Entrenamiento
+
 * **Alcance:** Data Science / Recolección en campo.
 * **Objetivo:** Obtener un set de eventos más exhaustivo para robustecer el modelo.
 * **Notas para futuro desglose:**
-Para evitar tareas infinitas, se deberá definir una cuota dura. Ej: "50 caídas simuladas por 3 usuarios distintos" y "100 eventos de Actividades de la Vida Diaria (ADL)".
+  Para evitar tareas infinitas, se deberá definir una cuota dura. Ej: "50 caídas simuladas por 3 usuarios distintos" y "100 eventos de Actividades de la Vida Diaria (ADL)".
 
 ### Épica 5: Alineación Espacial del Acelerómetro (Servidor)
+
 * **Alcance:** Servidor / Procesamiento de señales.
 * **Objetivo:** Modificar la orientación de los datos del sensor físico para que sus ejes coincidan con el marco de referencia esperado por el modelo.
 * **Notas para futuro desglose:**
-Implementar matriz de rotación matemática.
-Aplicar TDD (Test Driven Development): crear tests unitarios con vectores de entrada/salida conocidos antes de integrarlo al pipeline.
+  Implementar matriz de rotación matemática.
+  Aplicar TDD (Test Driven Development): crear tests unitarios con vectores de entrada/salida conocidos antes de integrarlo al pipeline.
 
 ### Épica 6: Integración del Stack BLE
+
 * **Alcance:** Firmware / App.
 * **Objetivo:** Implementar la comunicación Bluetooth Low Energy completa entre la pulsera y el teléfono/gateway.
 * **Notas para futuro desglose:**
-Deberá dividirse en:
-Advertising y control de conexión (GAP).
-Creación de Servicios y Características (GATT).
-Lógica de Seguridad y Emparejamiento (Bonding - relacionado a la Tarea 12 de Firmware).
-Transmisión de payloads de sensores (Notifications).
+  Deberá dividirse en:
+  Advertising y control de conexión (GAP).
+  Creación de Servicios y Características (GATT).
+  Lógica de Seguridad y Emparejamiento (Bonding - relacionado a la Tarea 12 de Firmware).
+  Transmisión de payloads de sensores (Notifications).
 
 ---
 

@@ -13,7 +13,8 @@ enum MsgType : uint8_t {
     MSG_PRESSURE_BUFFER = 0x02, // ENVIAR_BUFF_PREASSURE
     MSG_TEMPERATURE     = 0x03, // ENVIAR_TEMP
     MSG_ALARM           = 0x04, // ENVIAR_ALARMA
-    MSG_METRICS         = 0x05  // ENVIAR_METRICAS
+    MSG_METRICS         = 0x05, // ENVIAR_METRICAS
+    MSG_KEEP_ALIVE      = 0x06  // ENVIAR_KEEP_ALIVE
 };
 
 // =============================================================================

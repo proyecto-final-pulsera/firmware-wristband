@@ -55,5 +55,6 @@ bool SerialCommDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_
         Serial.write(payload, len);
     }
     
+    //Serial.write(crc, 2);
     return true;
 }

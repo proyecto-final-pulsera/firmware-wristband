@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 START_BYTE = 0xAA
 MSG_IMU_BUFFER = 0x01
 MSG_PRESSURE_BUFFER = 0x02
+MSG_TEMPERATURE = 0x03
+MSG_ALARM = 0x04
+MSG_METRICS = 0x05
+MSG_KEEP_ALIVE = 0x06
 
 def main():
     port = "COM5"
@@ -27,6 +31,7 @@ def main():
     # Para almacenar los datos temporalmente
     imu_x, imu_y, imu_z = [], [], []
     press_data = []
+    total_steps = 0  # Contador acumulativo de pasos
 
     try:
         while True:
@@ -104,6 +109,26 @@ def main():
                     
                     fig.canvas.draw()
                     fig.canvas.flush_events()
+                    
+                elif msg_type == MSG_TEMPERATURE:
+                    if msg_len >= 4:
+                        temp_val = struct.unpack('<f', payload[0:4])[0]
+                        print(f"\n[TELEMETRÍA] Temperatura: {temp_val:.2f} °C")
+                        
+                elif msg_type == MSG_METRICS:
+                    if msg_len >= 4:
+                        new_steps = struct.unpack('<I', payload[0:4])[0]
+                        total_steps += new_steps
+                        print(f"\n[TELEMETRÍA] Métricas (Pasos): +{new_steps} | Total Acumulado: {total_steps}")
+                        
+                elif msg_type == MSG_ALARM:
+                    print(f"\n================================================")
+                    print(f" [ALERTA CRÍTICA] ¡EVENTO DE CAÍDA DETECTADO!")
+                    print(f"================================================")
+                    
+                elif msg_type == MSG_KEEP_ALIVE:
+                    # Imprimimos de manera discreta para no ensuciar mucho la consola
+                    print(f"[SYS] Keep Alive recibido. (Dispositivo vivo)")
                     
             else:
                 # Imprimir el Debug ASCII.
