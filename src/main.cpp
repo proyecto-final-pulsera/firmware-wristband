@@ -1,59 +1,30 @@
 #include <Arduino.h>
-#include "drivers/battery_driver.h"
-#include "drivers/bhi260_driver.h"
-#include "drivers/vibrator_driver.h"
-#include "Nicla_System.h"
-#include "rtos.h"
-#include "test_eventos_imu.h"
-#include "test_virtual_sensors.h"
-#include "../test/test_sensors_drivers.h"
-BatteryDriver* battery;
-BHI260Driver* imu;
 
-// Hilo dedicado para hacer ping a la batería
+#include "test_serial_data.h"
+#include "drivers/battery_driver.h"
+
+BatteryDriver* battery = nullptr;
 rtos::Thread batteryThread(osPriorityNormal, 2048);
 
 void batteryPingTask() {
-  while (true) {
-    if (battery != nullptr) {
-      battery->ping();
+    while (true) {
+        if (battery != nullptr) {
+            battery->ping();
+        }
+        rtos::ThisThread::sleep_for(2000); // Ping cada 2 segundos
     }
-    rtos::ThisThread::sleep_for(2000);
-  }
 }
 
 void setup() {
-  Serial.begin(115200);
+    // Inicializar el controlador de batería y lanzar su hilo de ping
+    // Esto evita que el PMIC BQ25120 apague la placa
+    battery = BatteryDriver::createInstance();
+    batteryThread.start(batteryPingTask);
 
-  // Damos tiempo a que se estabilice la conexión
-  delay(2000);
-  
-  // Limpiamos cualquier basura (ruido eléctrico o mensajes de booteo)
-  // que haya quedado atascada en el buffer antes de arrancar.
-  while(Serial.available() > 0) {
-      Serial.read();
-  }
-
-  // Instanciar e inicializar el driver de batería
-  battery = BatteryDriver::createInstance();
-  batteryThread.start(batteryPingTask);
-
-  // Inicializar nuestro driver IMU
-  imu = BHI260Driver::getInstance();
-  
-  imu->init();
-  imu->disableNonWakeupFIFO();
-  // Vaciamos FIFOs iniciales para garantizar RISING pin edge
-  imu->flushFIFOs();
-
-  // Instanciamos el driver del vibrador para que el pin Enable arranque en LOW
-  VibratorDriver::createInstance();
-  
-  // Ejecutamos el test multi-sensor
-  runSensorsDriversTest();
+    // Todo el código de prueba fue encapsulado en la carpeta test/
+    runSerialDataTest();
 }
 
 void loop() {
-  // Lógica principal de tu aplicación (vacía por el momento mientras estamos en test)
-  rtos::ThisThread::sleep_for(100);
+    // El test corre en un while(1) infinito, por lo que nunca se llega acá.
 }

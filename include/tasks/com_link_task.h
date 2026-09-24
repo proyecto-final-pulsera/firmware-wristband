@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
+#include "drivers/comm_driver.h" // Para conocer los MsgType y la clase (contiene Arduino.h)
 #include "rtos.h"
-#include "drivers/comm_driver.h" // Para conocer los MsgType y la clase
 
 // =============================================================================
 // Estructuras de la Cola Inter-Task (Buzón de Mensajes)
