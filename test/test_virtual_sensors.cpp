@@ -42,7 +42,7 @@ void runVirtualSensorsTest() {
     
     if (present) {
       // Habilitar todos con 1.0f
-      enableTestSensor(id, 1.0f);
+      enableTestSensor(id, 25.0f);
     }
   }
 
