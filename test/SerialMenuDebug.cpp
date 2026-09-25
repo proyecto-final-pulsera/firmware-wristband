@@ -32,19 +32,19 @@ void SerialMenuDebug::processSerial() {
         if (cmd == "EVENTOS") {
             printEvents();
         } else if (cmd == "VIBRATOR_ENA") {
-            VibratorDriver::createInstance()->enable();
+            VibratorDriver::getInstance()->enable();
             Serial.println("[DEBUG] Vibrador habilitado.");
         } else if (cmd == "VIBRATOR_DES") {
-            VibratorDriver::createInstance()->disable();
+            VibratorDriver::getInstance()->disable();
             Serial.println("[DEBUG] Vibrador deshabilitado.");
         } else if (cmd == "VIBRATOR_BREAK") {
-            VibratorDriver::createInstance()->brake();
+            VibratorDriver::getInstance()->brake();
             Serial.println("[DEBUG] Vibrador deshabilitado.");
         
         } else if (cmd.startsWith("VIBRATOR_DUTY_")) {
             String valueStr = cmd.substring(14);
             int value = valueStr.toInt();
-            VibratorDriver::createInstance()->setStrength((uint8_t)value);
+            VibratorDriver::getInstance()->setStrength((uint8_t)value);
             Serial.print("[DEBUG] VEVibrador strength seteado a: ");
             Serial.println(value);
         } else {

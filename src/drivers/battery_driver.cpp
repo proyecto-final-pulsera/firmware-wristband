@@ -6,14 +6,14 @@
 BatteryDriver* BatteryDriver::_instance = nullptr;
 
 BatteryDriver* BatteryDriver::getInstance() {
+    if (_instance == nullptr) {
+        _instance = createInstance();
+    }
     return _instance;
 }
 
 BatteryDriver* BatteryDriver::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new BatteryDriver();
-    }
-    return _instance;
+    return new BatteryDriver();
 }
 
 // ==================================================================
@@ -21,7 +21,7 @@ BatteryDriver* BatteryDriver::createInstance() {
 // ==================================================================
 
 BatteryDriver::BatteryDriver() {
-    init(); // Inicializamos el hardware al momento de instanciar
+    // El init() debe llamarse explicitamente por quien instancia el driver
 }
 
 void BatteryDriver::init() {

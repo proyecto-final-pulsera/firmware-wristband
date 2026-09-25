@@ -11,21 +11,16 @@
 class BatteryDriver
 {
 public:
-    /**
-     * @brief Obtiene la instancia existente del driver.
-     * @return Puntero a la instancia. nullptr si aún no fue creada.
-     */
     static BatteryDriver* getInstance();
-
-    /**
-     * @brief Crea la instancia del driver (si no existe) y la retorna.
-     * @return Puntero a la instancia única.
-     */
-    static BatteryDriver* createInstance();
-
+    
     // Prohibimos copia y asignación (refuerzo del Singleton)
     BatteryDriver(const BatteryDriver&) = delete;
     BatteryDriver& operator=(const BatteryDriver&) = delete;
+
+    /**
+     * @brief Inicializa las configuraciones necesarias para leer la batería.
+     */
+    void init();
 
     /**
      * @brief Obtiene el nivel o porcentaje de carga de la batería.
@@ -56,20 +51,12 @@ public:
      * Sirve para reiniciar el watchdog timer del chip y evitar que entre en bajo consumo.
      */
     void ping();
-    
 
 private:
-    /// Instancia única del Singleton.
     static BatteryDriver* _instance;
+    static BatteryDriver* createInstance();
 
-    /**
-     * @brief Constructor privado del driver de la batería.
-     */
     BatteryDriver();
-    /**
-     * @brief Inicializa las configuraciones necesarias para leer la batería.
-     */
-    void init();
 
     // Instancia de la clase nicla para interactuar con la API del sistema
     nicla _board;

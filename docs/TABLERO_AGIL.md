@@ -50,7 +50,7 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
 
   - **Descripción:** Implementar protección de concurrencia (mutex, critical sections) en las operaciones de escritura y lectura de los buffers circulares de los drivers de sensores (IMU, presión, temperatura). Garantizar que no existan race conditions entre el thread productor (ISR/recolector) y el consumidor (processing task).
   - **Criterio de aceptación:** Los buffers de los drivers soportan acceso concurrente sin corrupción de datos. Se puede demostrar que un hilo escribe y otro lee simultáneamente sin errores.
-- [ ] **Tarea 27: Unificación de términos de inicialización y Singletons**
+- [X] **Tarea 27: Unificación de términos de inicialización y Singletons**
 
   - **Descripción:** Estandarizar las firmas de inicialización en todos los drivers (ej. unificar el uso de `init()`). Además, unificar la nomenclatura y los métodos de los patrones Singleton en todo el proyecto para que todos usen la misma convención (ej. decidir entre `createInstance()` o `getInstance()`, o cómo se relacionan entre sí).
   - **Criterio de aceptación:** Todos los drivers y tareas presentan la misma convención de nombrado para su ciclo de vida, inicialización y acceso a su instancia única.

@@ -19,7 +19,7 @@
 class InterfaceDriver {
 public:
     static InterfaceDriver* getInstance();
-    static InterfaceDriver* createInstance();
+    void init();
 
     // Prohibimos copia y asignación (refuerzo del Singleton)
     InterfaceDriver(const InterfaceDriver&) = delete;
@@ -72,9 +72,9 @@ public:
 
 private:
     static InterfaceDriver* _instance;
+    static InterfaceDriver* createInstance();
 
     InterfaceDriver();
-    void initInterface();
     
     // =========================================================================
     // LED

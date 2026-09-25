@@ -35,7 +35,7 @@ void runSerialDataTest() {
 
     // Iniciar driver de comunicación
     SerialCommDriver* comm = SerialCommDriver::getInstance();
-    comm->begin();
+    comm->init();
 
     // Instancias de los Drivers
     static ImuSensorDriver imuDriver;

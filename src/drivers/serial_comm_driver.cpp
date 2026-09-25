@@ -4,12 +4,16 @@ SerialCommDriver* SerialCommDriver::_instance = nullptr;
 
 SerialCommDriver* SerialCommDriver::getInstance() {
     if (_instance == nullptr) {
-        _instance = new SerialCommDriver();
+        _instance = createInstance();
     }
     return _instance;
 }
 
-void SerialCommDriver::begin() {
+SerialCommDriver* SerialCommDriver::createInstance() {
+    return new SerialCommDriver();
+}
+
+void SerialCommDriver::init() {
     // Se asume que Serial.begin(115200) puede ser llamado aquí o en el main
     // para mantener la compatibilidad con el resto del sistema.
     Serial.begin(115200);

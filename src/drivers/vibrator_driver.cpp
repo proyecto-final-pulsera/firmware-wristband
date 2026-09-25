@@ -7,14 +7,14 @@
 VibratorDriver* VibratorDriver::_instance = nullptr;
 
 VibratorDriver* VibratorDriver::getInstance() {
+    if (_instance == nullptr) {
+        _instance = createInstance();
+    }
     return _instance;
 }
 
 VibratorDriver* VibratorDriver::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new VibratorDriver();
-    }
-    return _instance;
+    return new VibratorDriver();
 }
 
 // ==================================================================

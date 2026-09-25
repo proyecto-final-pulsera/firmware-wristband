@@ -5,9 +5,13 @@ BHI260Driver* BHI260Driver::_instance = nullptr;
 
 BHI260Driver* BHI260Driver::getInstance() {
     if (_instance == nullptr) {
-        _instance = new BHI260Driver();
+        _instance = createInstance();
     }
     return _instance;
+}
+
+BHI260Driver* BHI260Driver::createInstance() {
+    return new BHI260Driver();
 }
 
 BHI260Driver::BHI260Driver() {

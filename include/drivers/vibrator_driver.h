@@ -25,6 +25,7 @@ namespace mbed {
  */
 class VibratorDriver {
 public:
+    void init();
     /**
      * @brief Obtiene la instancia existente del driver.
      * @return Puntero a la instancia. nullptr si aún no fue creada.
@@ -35,8 +36,6 @@ public:
      * @brief Crea la instancia del driver (si no existe) y la retorna.
      * @return Puntero a la instancia única.
      */
-    static VibratorDriver* createInstance();
-
     // Prohibimos copia y asignación (refuerzo del Singleton)
     VibratorDriver(const VibratorDriver&) = delete;
     VibratorDriver& operator=(const VibratorDriver&) = delete;
@@ -75,6 +74,7 @@ public:
     void setMinDuty(float min_duty);
 
 private:
+    static VibratorDriver* createInstance();
     /// Instancia única del Singleton.
     static VibratorDriver* _instance;
 
@@ -83,7 +83,7 @@ private:
      */
     VibratorDriver();
 
-    void init();
+
     
     // Función de ayuda para actualizar el PWM con el duty actual mapeado
     void updatePWM();

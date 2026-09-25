@@ -32,7 +32,7 @@ void runTestEventosImu() {
     imu = BHI260Driver::getInstance();
     
     // IMPORTANTE: Crear la instancia para evitar nullptr
-    interfaceDriver = InterfaceDriver::createInstance();
+    interfaceDriver = InterfaceDriver::getInstance();
     
     // Test no arrancó todavía
     interfaceDriver->setLedWarn();

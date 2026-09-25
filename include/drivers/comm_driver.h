@@ -81,7 +81,7 @@ public:
     // Métodos Virtuales Puros (Contrato estricto para los hijos)
     // -------------------------------------------------------------------------
     
-    virtual void begin() = 0;
+    virtual void init() = 0;
     
     // Engancha el Callback/ISR al hardware físico
     virtual void attachRxInterrupt() = 0;

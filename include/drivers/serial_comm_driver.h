@@ -5,6 +5,7 @@
 class SerialCommDriver : public CommDriver {
 private:
     static SerialCommDriver* _instance;
+    static SerialCommDriver* createInstance();
     
     SerialCommDriver() = default;
 
@@ -24,7 +25,7 @@ public:
     // -------------------------------------------------------------------------
     // Implementación del Contrato Base
     // -------------------------------------------------------------------------
-    void begin() override;
+    void init() override;
     void attachRxInterrupt() override;
     bool processRxData(CommPacket* out_msg) override;
     bool sendPayload(MsgType type, const uint8_t* payload, uint16_t len) override;

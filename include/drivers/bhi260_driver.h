@@ -72,12 +72,12 @@ public:
     void enableInterrupt();
     void disableInterrupt();
 
-protected:
-    BHI260Driver();
-    ~BHI260Driver();
-
 private:
     static BHI260Driver* _instance;
+    static BHI260Driver* createInstance();
+
+    BHI260Driver();
+    ~BHI260Driver();
     
     uint32_t _interruptPin;
     void (*_isr_handler)(void);

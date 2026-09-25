@@ -6,14 +6,14 @@
 InterfaceDriver* InterfaceDriver::_instance = nullptr;
 
 InterfaceDriver* InterfaceDriver::getInstance() {
+    if (_instance == nullptr) {
+        _instance = createInstance();
+    }
     return _instance;
 }
 
 InterfaceDriver* InterfaceDriver::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new InterfaceDriver();
-    }
-    return _instance;
+    return new InterfaceDriver();
 }
 
 // ==================================================================
@@ -34,10 +34,10 @@ InterfaceDriver::InterfaceDriver()
       _notifAlert(false)
 {
     led = &nicla::leds;
-    initInterface();
+    // init() debe llamarse desde App::init()
 }
 
-void InterfaceDriver::initInterface() {
+void InterfaceDriver::init() {
     // Inicialización del LED
     if (led != nullptr) {
         led->begin();

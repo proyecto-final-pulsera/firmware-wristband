@@ -38,8 +38,8 @@ void App::init() {
     // ------------------------------------------------------------------------
     
     // PMIC (Batería)
-    BatteryDriver* battery = BatteryDriver::createInstance();
-    // battery->init(); // Si el createInstance no lo inicializa por dentro
+    BatteryDriver* battery = BatteryDriver::getInstance();
+    battery->init();
     
     // Sensor Principal BHI260
     BHI260Driver* bhi260 = BHI260Driver::getInstance();
@@ -47,14 +47,16 @@ void App::init() {
     bhi260->configureInterrupt(isr_bhi260);
 
     // Interfaz de Usuario (Botones y LEDs)
-    InterfaceDriver* interface = InterfaceDriver::createInstance();
+    InterfaceDriver* interface = InterfaceDriver::getInstance();
+    interface->init();
 
-    // Vibrador (Pendiente de mergear rama)
-    // VibratorDriver* vibrator = VibratorDriver::createInstance();
-    // vibrator->init();
+    // Vibrador
+    VibratorDriver* vibrator = VibratorDriver::getInstance();
+    vibrator->init();
 
     // Comunicaciones
     SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
+    serialDriver->init();
     
     
     // ------------------------------------------------------------------------
