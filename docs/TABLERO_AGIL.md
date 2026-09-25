@@ -37,7 +37,7 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
 
   - **Descripción:** Implementar el envío del evento de caída (con su snapshot de datos del buffer) a través del driver de comunicación utilizando el protocolo de tramas definido.
   - **Criterio de aceptación:** El evento de caída se transmite correctamente por serie con el formato de trama correspondiente, incluyendo el payload de datos del sensor.
-- [ ] **Tarea 24: Validación de Comunicación de Caída**
+- [X] **Tarea 24: Validación de Comunicación de Caída**
 
   - **Descripción:** Verificar que el evento de caída recibido en el script de Python contenga los datos esperados del snapshot. Validar integridad de trama, parseo correcto y que no haya pérdida de datos.
   - **Criterio de aceptación:** El script Python muestra el evento de caída con todos los datos del snapshot parseados correctamente y sin errores de integridad.

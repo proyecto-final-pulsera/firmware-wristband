@@ -44,17 +44,33 @@ bool SerialCommDriver::processRxData(AppMessage* out_msg) {
     return false;
 }
 
+
+
 bool SerialCommDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) {
     const uint8_t START_BYTE = 0xAA;
     
+    // 1. Calcular CRC del Header (START_BYTE + Type + Len)
+    uint8_t header_crc = calculateCRC8(&START_BYTE, 1);
+    header_crc = calculateCRC8((uint8_t*)&type, 1, header_crc);
+    header_crc = calculateCRC8((uint8_t*)&len, 2, header_crc);
+    
+    // 2. Calcular CRC del Payload (solo si existe)
+    uint8_t payload_crc = 0;
+    if (payload != nullptr && len > 0) {
+        payload_crc = calculateCRC8(payload, len);
+    }
+    
+    // Enviar Header + Header CRC
     Serial.write(&START_BYTE, 1);
     Serial.write((uint8_t*)&type, 1);
     Serial.write((uint8_t*)&len, 2);
+    Serial.write(&header_crc, 1);
     
+    // Enviar Payload + Payload CRC (si hay payload)
     if (payload != nullptr && len > 0) {
-        Serial.write(payload, len);
+        Serial.write(payload, len);    
+        Serial.write(&payload_crc, 1);
     }
     
-    //Serial.write(crc, 2);
     return true;
 }

@@ -106,3 +106,25 @@ Durante el desarrollo se crearon distintos entornos aislados de prueba (en la ca
 * **Objetivo:** Validar la coexistencia pacífica y orquestada de **todos** los sensores (IMU, Presión, Temperatura y Gestos) utilizando un único sistema de interrupciones.
 * **Funcionamiento:** Instancia las clases Wrapper creadas (`ImuSensorDriver`, `PressureSensorDriver`, `TemperatureSensorDriver`, `EventSensorDriver`). Arranca inicialmente con la FIFO continua suspendida. Si un evento de *Motion* (Any Motion Wake-Up) despierta a la placa, automáticamente se habilita la FIFO Non-Wakeup, y las clases wrapper empiezan a acumular y vaciar los datos de la IMU y Barómetro. Si se detecta un evento *Stationary*, se vuelve a dormir el flujo.
 * **Qué prueba:** Demuestra la arquitectura final que usará la pulsera. Prueba que una sola sub-rutina de interrupción (`isrFlag`) es capaz de vaciar el hardware de Bosch por completo de forma agnóstica, rellenando ordenadamente los buffers individuales de cada driver de aplicación y permitiendo encender/apagar el modo ráfaga según el estado físico del usuario para maximizar el ahorro de batería.
+
+---
+
+## 7. Protocolo de Comunicación y Robustez
+
+### 7.1 Arquitectura del Frame (Trama de Datos)
+Para comunicar la pulsera con el exterior (PC o dispositivos móviles) se diseñó un protocolo binario minimalista y rápido. La trama está compuesta por:
+* `START_BYTE` (0xAA): Byte mágico de sincronización.
+* `TYPE` (1 byte): Identificador del tipo de mensaje (IMU, Presión, Alarma, etc.).
+* `LENGTH` (2 bytes, Little Endian): Longitud en bytes del payload.
+* `HEADER_CRC` (1 byte): Suma de comprobación (CRC-8) exclusiva de los primeros 4 bytes.
+* `PAYLOAD` (N bytes): Datos binarios en crudo.
+* `PAYLOAD_CRC` (1 byte): Suma de comprobación (CRC-8) exclusiva del Payload (solo presente si `LENGTH` > 0).
+
+### 7.2 Implementación de CRC-8 (Lookup Table)
+Se optó por utilizar el algoritmo **CRC-8** (con polinomio 0x07) implementado mediante el método de **Lookup Table**.
+* **Funcionamiento y Motivo:** En lugar de realizar la división polinómica bit a bit en tiempo real, se utilizan los 256 resultados posibles pre-calculados y guardados en una tabla en la memoria Flash. De esta forma, el cálculo "on the fly" se reduce a una simple operación XOR y una búsqueda en memoria por cada byte. Esto garantiza robustez extrema frente a ruido e interferencias conservando una altísima velocidad de despacho.
+
+### 7.3 Separación Crítica: Header CRC vs Payload CRC
+El protocolo implementa dos verificaciones de CRC independientes dentro del mismo mensaje, separando la cabecera (Header) de la carga útil (Payload).
+* **Problema Original:** Si solo se validaba el mensaje al final y un error de ruido eléctrico afectaba a los bytes de "Longitud" (LENGTH), el receptor asumía un tamaño falso gigante (ej. 65000 bytes). Al esperar tantos bytes, el receptor perdía sincronización o se trababa leyendo basura (y falsos bytes de inicio) del buffer serial, causando un colapso en cascada de los paquetes subsecuentes.
+* **Solución Aplicada:** Al validar primero el `HEADER_CRC` de forma aislada, el receptor puede saber de forma confiable e inmediata si la información de "Longitud" es legítima. Si el Header CRC falla, el receptor ignora el supuesto largo, **ejecuta una purga inmediata del buffer serie (flushing)**, y aborta la trama sin intentar leer la carga, protegiendo al sistema y permitiendo una re-sincronización instantánea con el próximo paquete válido.
