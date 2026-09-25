@@ -1,5 +1,6 @@
 #include "app/app.h"
 
+
 // Tareas
 #include "tasks/system_task.h"
 #include "tasks/comm_link_task.h"
@@ -17,8 +18,6 @@
 // ============================================================================
 // RUTINAS DE SERVICIO DE INTERRUPCION (ISRs)
 // ============================================================================
-// Estas funciones son llamadas directamente por el hardware (Nivel 0). 
-// Por ahora solo estan definidas, la logica de encolado se agregara luego.
 
 void isr_bhi260() {
 
@@ -28,7 +27,6 @@ void isr_serial_rx() {
 
 }
 
-// La ISR de botones ya esta definida internamente en InterfaceDriver::buttonInterruptHandler
 
 
 // ============================================================================
@@ -56,8 +54,7 @@ void App::init() {
     // vibrator->init();
 
     // Comunicaciones
-    // SerialCommDriver serialDriver;
-    // BLEDriver bleDriver;
+    SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
     
     
     // ------------------------------------------------------------------------

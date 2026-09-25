@@ -20,7 +20,7 @@ enum MsgType : uint8_t {
 // =============================================================================
 // Estructura de Salida para la Aplicación
 // =============================================================================
-struct AppMessage {
+struct CommPacket {
     MsgType type;
     uint8_t payload[128]; // Tamaño máximo estimado para un paquete
     uint16_t length;
@@ -88,7 +88,7 @@ public:
     
     // Lee el buffer de hardware y decodifica la trama. 
     // Devuelve true si armó una trama completa válida.
-    virtual bool processRxData(AppMessage* out_msg) = 0; 
+    virtual bool processRxData(CommPacket* out_msg) = 0; 
     
     // Envía un payload construyendo la trama en formato binario
     virtual bool sendPayload(MsgType type, const uint8_t* payload, uint16_t len) = 0;

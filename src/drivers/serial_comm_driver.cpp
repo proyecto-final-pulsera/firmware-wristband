@@ -35,7 +35,7 @@ void SerialCommDriver::attachRxInterrupt() {
      */
 }
 
-bool SerialCommDriver::processRxData(AppMessage* out_msg) {
+bool SerialCommDriver::processRxData(CommPacket* out_msg) {
     // La recepción está deshabilitada temporalmente por la decisión arquitectónica.
     // Se purga el buffer para evitar overflows si llegan datos basura.
     while (Serial.available() > 0) {

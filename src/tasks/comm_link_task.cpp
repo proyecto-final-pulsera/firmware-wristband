@@ -19,10 +19,7 @@ void CommLinkTask::run() {
         if (_comm_link_task_queue.receive(&msg)) {
             // --- PROCESAR EL MENSAJE AQUI ---
             
-            
             // --- FIN PROCESAMIENTO ---
         }
-    }
-}
     }
 }

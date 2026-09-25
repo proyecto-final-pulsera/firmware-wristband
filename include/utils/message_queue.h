@@ -14,8 +14,8 @@ private:
     // --- Magia de C++ (Sobrecarga de funciones) ---
     // Si T es exactamente 'AppMessage', el compilador usa esta funcion y estampa el tiempo
     void apply_helpers(AppMessage* msg) {
-        // Asignamos el timestamp actual automaticamente
-        msg->timestamp = rtos::Kernel::get_ms_count();
+        // Asignamos el timestamp actual automaticamente (Mbed OS 6 safe)
+        msg->timestamp = rtos::Kernel::Clock::now().time_since_epoch().count();
     }
     
     // Si T es cualquier otro tipo (ej. int, float), el compilador usa esta funcion que no hace nada
@@ -71,11 +71,17 @@ public:
     /**
      * @brief Saca un mensaje del Mailbox (si lo hay) y libera la memoria automaticamente.
      * @param msg_out Puntero donde se volcaran los datos extraidos.
-     * @param timeout_ms Tiempo maximo a esperar (por defecto espera por siempre).
+     * @param timeout_ms Tiempo maximo a esperar en milisegundos.
      * @return true si recibio un mensaje, false si ocurrio un timeout.
      */
-    bool receive(T* msg_out, uint32_t timeout_ms = rtos::Kernel::wait_for_u32_forever) {
-        T* received_ptr = _mail.try_get_for(timeout_ms);
+    bool receive(T* msg_out, uint32_t timeout_ms = osWaitForever) {
+        T* received_ptr = nullptr;
+        if (timeout_ms == osWaitForever) {
+            received_ptr = _mail.try_get_for(rtos::Kernel::wait_for_u32_forever);
+        } else {
+            received_ptr = _mail.try_get_for(std::chrono::milliseconds(timeout_ms));
+        }
+
         if (received_ptr != nullptr) {
             *msg_out = *received_ptr; // Copiamos al espacio del usuario
             _mail.free(received_ptr); // Devolvemos el sobre vacio al mailbox

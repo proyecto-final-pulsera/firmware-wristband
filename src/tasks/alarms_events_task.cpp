@@ -19,10 +19,7 @@ void AlarmsEventsTask::run() {
         if (_alarms_events_task_queue.receive(&msg)) {
             // --- PROCESAR EL MENSAJE AQUI ---
             
-            
             // --- FIN PROCESAMIENTO ---
         }
-    }
-}
     }
 }

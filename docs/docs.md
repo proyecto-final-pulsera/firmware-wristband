@@ -128,3 +128,14 @@ Se optó por utilizar el algoritmo **CRC-8** (con polinomio 0x07) implementado m
 El protocolo implementa dos verificaciones de CRC independientes dentro del mismo mensaje, separando la cabecera (Header) de la carga útil (Payload).
 * **Problema Original:** Si solo se validaba el mensaje al final y un error de ruido eléctrico afectaba a los bytes de "Longitud" (LENGTH), el receptor asumía un tamaño falso gigante (ej. 65000 bytes). Al esperar tantos bytes, el receptor perdía sincronización o se trababa leyendo basura (y falsos bytes de inicio) del buffer serial, causando un colapso en cascada de los paquetes subsecuentes.
 * **Solución Aplicada:** Al validar primero el `HEADER_CRC` de forma aislada, el receptor puede saber de forma confiable e inmediata si la información de "Longitud" es legítima. Si el Header CRC falla, el receptor ignora el supuesto largo, **ejecuta una purga inmediata del buffer serie (flushing)**, y aborta la trama sin intentar leer la carga, protegiendo al sistema y permitiendo una re-sincronización instantánea con el próximo paquete válido.
+
+---
+
+## 8. RTOS y Arquitectura Multi-Tarea
+
+### 8.1 Comunicación Inter-Task y Sincronización (Mailboxes y Mutexes)
+Para coordinar el sistema de tiempo real (Mbed OS), se implementó un sistema de comunicación entre tareas basado en el paso de mensajes (Message Passing).
+* **Wrapper Tipado:** Se creó un wrapper C++ tipo template (`MessageQueue`) sobre la clase nativa `rtos::Mail`. Esto permite aislar a las tareas de las implementaciones subyacentes del SO, automatizando además la inyección de timestamps (`Kernel::Clock::now()`) de forma transparente para evitar deprecaciones del Mbed OS 6.
+* **Vocabulario Aislado:** Para prevenir que una tarea envíe un comando equivocado (Namespace Pollution), cada tarea define sus propios IDs de mensajes en un `enum` interno (`protected`).
+* **Prueba de Concurrencia Exitosa:** Para validar el diseño del Sprint, se realizó una prueba inyectando un evento `CMD_TEST` masivo desde la tarea orquestadora (`SystemTask`) hacia las tareas de Comunicaciones, Alarma y Notificaciones de forma simultánea. Las tareas hijas recibieron el comando y ejecutaron una respuesta directa ("RESPUESTA DESDE...") al buzón del orquestador.
+* **Control de Colisión (Mutex):** Como Mbed/Arduino OS no garantiza Thread-Safety nativo en las llamadas a `Serial.print()`, se comprobó empíricamente que la concurrencia generaba solapamiento de caracteres. Esto se mitigó validando el uso de `rtos::Mutex` durante la prueba de ping-pong, demostrando que el RTOS administra los bloqueos y prioridades de los hilos correctamente, abriendo la puerta al desarrollo seguro del resto de las lógicas.

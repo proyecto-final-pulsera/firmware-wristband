@@ -19,9 +19,7 @@ void SystemTask::run() {
         if (_system_task_queue.receive(&msg)) {
             // --- PROCESAR EL MENSAJE AQUI ---
             
-            
             // --- FIN PROCESAMIENTO ---
         }
     }
 }
-

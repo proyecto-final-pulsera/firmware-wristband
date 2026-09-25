@@ -41,7 +41,7 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
 
   - **Descripción:** Verificar que el evento de caída recibido en el script de Python contenga los datos esperados del snapshot. Validar integridad de trama, parseo correcto y que no haya pérdida de datos.
   - **Criterio de aceptación:** El script Python muestra el evento de caída con todos los datos del snapshot parseados correctamente y sin errores de integridad.
-- [ ] **Tarea 25 (Backlog 4): Mecanismos de comunicación entre tareas**
+- [X] **Tarea 25 (Backlog 4): Mecanismos de comunicación entre tareas**
 
   - **Tiempo estimado:** 3 horas
   - **Descripción:** Definir e implementar los mecanismos (colas, semáforos, event groups) basados en la arquitectura de la tarea 1.
@@ -50,7 +50,14 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
 
   - **Descripción:** Implementar protección de concurrencia (mutex, critical sections) en las operaciones de escritura y lectura de los buffers circulares de los drivers de sensores (IMU, presión, temperatura). Garantizar que no existan race conditions entre el thread productor (ISR/recolector) y el consumidor (processing task).
   - **Criterio de aceptación:** Los buffers de los drivers soportan acceso concurrente sin corrupción de datos. Se puede demostrar que un hilo escribe y otro lee simultáneamente sin errores.
+- [ ] **Tarea 27: Unificación de términos de inicialización y Singletons**
 
+  - **Descripción:** Estandarizar las firmas de inicialización en todos los drivers (ej. unificar el uso de `init()`). Además, unificar la nomenclatura y los métodos de los patrones Singleton en todo el proyecto para que todos usen la misma convención (ej. decidir entre `createInstance()` o `getInstance()`, o cómo se relacionan entre sí).
+  - **Criterio de aceptación:** Todos los drivers y tareas presentan la misma convención de nombrado para su ciclo de vida, inicialización y acceso a su instancia única.
+- [ ] **Tarea 28: Refactor de InterfaceDriver y ButtonDriver**
+
+  - **Descripción:** El driver de pulsador y manejo de interrupciones actual no es claro (`InterfaceDriver`). Se debe instanciar la ISR fuera de la clase (en `app.cpp` junto a las demás) y hacer que la Tarea (`SystemTask` o `AlarmsEventsTask`) corra la MDE correspondiente.
+  - **Criterio de aceptación:** La clase `InterfaceDriver` queda libre de acoplamientos de semáforos e ISRs ocultas, cediendo el control del polling/MDE a las tareas del RTOS.
 ## Sprints Previos (Tareas Completadas)
 
 ### Sprint 1: Inicialización

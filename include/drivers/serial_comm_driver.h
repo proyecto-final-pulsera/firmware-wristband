@@ -26,6 +26,6 @@ public:
     // -------------------------------------------------------------------------
     void begin() override;
     void attachRxInterrupt() override;
-    bool processRxData(AppMessage* out_msg) override;
+    bool processRxData(CommPacket* out_msg) override;
     bool sendPayload(MsgType type, const uint8_t* payload, uint16_t len) override;
 };

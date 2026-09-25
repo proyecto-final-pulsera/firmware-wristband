@@ -1,30 +1,38 @@
 #include <Arduino.h>
-
-#include "test_serial_data.h"
+#include "app/app.h"
 #include "drivers/battery_driver.h"
 
-BatteryDriver* battery = nullptr;
-rtos::Thread batteryThread(osPriorityNormal, 2048);
+// Hilo dedicado a mantener vivo el PMIC enviandole Pings por I2C
+rtos::Thread batteryThread(osPriorityNormal, 1024);
 
 void batteryPingTask() {
+    BatteryDriver* battery = BatteryDriver::getInstance();
     while (true) {
         if (battery != nullptr) {
             battery->ping();
         }
-        rtos::ThisThread::sleep_for(2000); // Ping cada 2 segundos
+        // Ping cada 2 segundos (Mbed OS 6 safe)
+        rtos::ThisThread::sleep_for(std::chrono::milliseconds(2000));
     }
 }
 
 void setup() {
-    // Inicializar el controlador de batería y lanzar su hilo de ping
-    // Esto evita que el PMIC BQ25120 apague la placa
-    battery = BatteryDriver::createInstance();
-    batteryThread.start(batteryPingTask);
+    // Inicializar puerto serie para ver los prints de prueba
+    Serial.begin(115200);
+    // Esperar a que conectes el Serial Monitor, podes comentarlo si usas bateria
+    // while (!Serial) { rtos::ThisThread::sleep_for(std::chrono::milliseconds(10)); }
 
-    // Todo el código de prueba fue encapsulado en la carpeta test/
-    runSerialDataTest();
+    // 1. Inicializar toda la arquitectura de la app (Drivers, Tareas, ISRs)
+    App::init();
+
+    // 2. Iniciar el hilo del PMIC
+    // Nota: Como la App ya llamo a BatteryDriver::createInstance(), 
+    // el getInstance() dentro de la tarea funcionara correctamente.
+    batteryThread.start(batteryPingTask);
 }
 
 void loop() {
-    // El test corre en un while(1) infinito, por lo que nunca se llega acá.
+    // El RTOS ya tomo el control mediante los threads.
+    // Dejamos el loop vacio cediendo el tiempo al Scheduler.
+    rtos::ThisThread::sleep_for(std::chrono::milliseconds(1000));
 }
