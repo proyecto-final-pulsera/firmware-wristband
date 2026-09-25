@@ -5,21 +5,21 @@
 #include "utils/message_queue.h"
 
 
-class AlarmsEventsTask {
+class CommLinkTask {
     // Permitimos que el SystemTask orqueste y envie mensajes a esta tarea
     friend class SystemTask;
 
 private:
     // Constructor privado (Patron Singleton)
-    AlarmsEventsTask() {}
-    ~AlarmsEventsTask() {}
+    CommLinkTask() {}
+    ~CommLinkTask() {}
 
     // Evitar copias
-    AlarmsEventsTask(const AlarmsEventsTask&) = delete;
-    AlarmsEventsTask& operator=(const AlarmsEventsTask&) = delete;
+    CommLinkTask(const CommLinkTask&) = delete;
+    CommLinkTask& operator=(const CommLinkTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _alarms_events_task_queue;
+    MessageQueue<AppMessage, 16> _comm_link_task_queue;
 
     void run();
 
@@ -31,13 +31,14 @@ protected:
 protected:
     // Comandos y eventos exclusivos de esta tarea
     enum EventId : uint8_t {
-        CMD_DETECT_FALL,
-        EVT_PANIC_BUTTON,
+        CMD_TX_TELEMETRY,
+        CMD_TX_ALARM,
+        EVT_RX_PACKET,
     };
 
 public:
-    static AlarmsEventsTask& getInstance() {
-        static AlarmsEventsTask instance;
+    static CommLinkTask& getInstance() {
+        static CommLinkTask instance;
         return instance;
     }
 

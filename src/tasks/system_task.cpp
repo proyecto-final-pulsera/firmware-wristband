@@ -1,22 +1,22 @@
-#include "tasks/alarms_events_task.h"
+#include "tasks/system_task.h"
 #include "mbed.h"
 
-void AlarmsEventsTask::init() {
+void SystemTask::init() {
     // Inicializar hardware, configuraciones previas al inicio, etc.
     
     // Iniciar el hilo asociado al metodo run de esta instancia
-    _thread.start(mbed::callback(this, &AlarmsEventsTask::run));
+    _thread.start(mbed::callback(this, &SystemTask::run));
 }
 
-bool AlarmsEventsTask::sendMsg(AppMessage* msg) {
-    return _alarms_events_task_queue.send(msg);
+bool SystemTask::sendMsg(AppMessage* msg) {
+    return _system_task_queue.send(msg);
 }
 
-void AlarmsEventsTask::run() {
+void SystemTask::run() {
     AppMessage msg;
     while (true) {
         // Esperamos un mensaje por siempre usando el Wrapper
-        if (_alarms_events_task_queue.receive(&msg)) {
+        if (_system_task_queue.receive(&msg)) {
             // --- PROCESAR EL MENSAJE AQUI ---
             
             
@@ -24,5 +24,4 @@ void AlarmsEventsTask::run() {
         }
     }
 }
-    }
-}
+

@@ -1,22 +1,22 @@
-#include "tasks/alarms_events_task.h"
+#include "tasks/notif_ui_task.h"
 #include "mbed.h"
 
-void AlarmsEventsTask::init() {
+void NotifUiTask::init() {
     // Inicializar hardware, configuraciones previas al inicio, etc.
     
     // Iniciar el hilo asociado al metodo run de esta instancia
-    _thread.start(mbed::callback(this, &AlarmsEventsTask::run));
+    _thread.start(mbed::callback(this, &NotifUiTask::run));
 }
 
-bool AlarmsEventsTask::sendMsg(AppMessage* msg) {
-    return _alarms_events_task_queue.send(msg);
+bool NotifUiTask::sendMsg(AppMessage* msg) {
+    return _notif_ui_task_queue.send(msg);
 }
 
-void AlarmsEventsTask::run() {
+void NotifUiTask::run() {
     AppMessage msg;
     while (true) {
         // Esperamos un mensaje por siempre usando el Wrapper
-        if (_alarms_events_task_queue.receive(&msg)) {
+        if (_notif_ui_task_queue.receive(&msg)) {
             // --- PROCESAR EL MENSAJE AQUI ---
             
             

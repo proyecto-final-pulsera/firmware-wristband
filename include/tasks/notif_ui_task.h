@@ -5,21 +5,21 @@
 #include "utils/message_queue.h"
 
 
-class AlarmsEventsTask {
+class NotifUiTask {
     // Permitimos que el SystemTask orqueste y envie mensajes a esta tarea
     friend class SystemTask;
 
 private:
     // Constructor privado (Patron Singleton)
-    AlarmsEventsTask() {}
-    ~AlarmsEventsTask() {}
+    NotifUiTask() {}
+    ~NotifUiTask() {}
 
     // Evitar copias
-    AlarmsEventsTask(const AlarmsEventsTask&) = delete;
-    AlarmsEventsTask& operator=(const AlarmsEventsTask&) = delete;
+    NotifUiTask(const NotifUiTask&) = delete;
+    NotifUiTask& operator=(const NotifUiTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _alarms_events_task_queue;
+    MessageQueue<AppMessage, 16> _notif_ui_task_queue;
 
     void run();
 
@@ -31,13 +31,14 @@ protected:
 protected:
     // Comandos y eventos exclusivos de esta tarea
     enum EventId : uint8_t {
-        CMD_DETECT_FALL,
-        EVT_PANIC_BUTTON,
+        CMD_LED_ALARM,
+        CMD_LED_OK,
+        CMD_BUZZER_BEEP,
     };
 
 public:
-    static AlarmsEventsTask& getInstance() {
-        static AlarmsEventsTask instance;
+    static NotifUiTask& getInstance() {
+        static NotifUiTask instance;
         return instance;
     }
 

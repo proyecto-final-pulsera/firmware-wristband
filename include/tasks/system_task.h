@@ -5,39 +5,39 @@
 #include "utils/message_queue.h"
 
 
-class AlarmsEventsTask {
+class SystemTask {
     // Permitimos que el SystemTask orqueste y envie mensajes a esta tarea
-    friend class SystemTask;
 
 private:
     // Constructor privado (Patron Singleton)
-    AlarmsEventsTask() {}
-    ~AlarmsEventsTask() {}
+    SystemTask() {}
+    ~SystemTask() {}
 
     // Evitar copias
-    AlarmsEventsTask(const AlarmsEventsTask&) = delete;
-    AlarmsEventsTask& operator=(const AlarmsEventsTask&) = delete;
+    SystemTask(const SystemTask&) = delete;
+    SystemTask& operator=(const SystemTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _alarms_events_task_queue;
+    MessageQueue<AppMessage, 16> _system_task_queue;
 
     void run();
 
-protected:
+public: // API Publica: Todas las tareas pueden reportar al SystemTask
     // Protegido: Solo los 'friend' (como SystemTask) pueden encolar trabajos aca.
     // Garantiza que nadie salte el esquema arquitectonico por error.
     bool sendMsg(AppMessage* msg);
 
-protected:
+public:
     // Comandos y eventos exclusivos de esta tarea
     enum EventId : uint8_t {
-        CMD_DETECT_FALL,
-        EVT_PANIC_BUTTON,
+        CMD_PROCESS_ALARM,
+        CMD_UPDATE_STATE,
+        EVT_BATTERY_LOW,
     };
 
 public:
-    static AlarmsEventsTask& getInstance() {
-        static AlarmsEventsTask instance;
+    static SystemTask& getInstance() {
+        static SystemTask instance;
         return instance;
     }
 
