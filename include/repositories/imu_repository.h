@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <mbed.h>
 #include "sensors/SensorClass.h"
 #include "drivers/bhi260_driver.h"
 
@@ -16,19 +17,29 @@
 #define IMU_FIFO_SIZE (FREQ_IMU * LEN_BUFFER_IMU_SEG)
 
 /**
- * @brief Driver de alto nivel para el sensor IMU (Acelerómetro) heredado de SensorClass.
+ * @brief Repository de alto nivel para el sensor IMU (Acelerómetro) heredado de SensorClass.
  * Esta clase se suscribe a los paquetes del BHI260AP y mantiene un buffer circular
  * (FIFO) propio para almacenar los últimos datos sin bloquear el sistema principal.
  */
-class ImuSensorDriver : public SensorClass {
+class ImuRepository : public SensorClass {
 public:
+    /**
+     * @brief Singleton access
+     */
+    static ImuRepository* getInstance();
+
+private:
     /**
      * @brief Constructor por defecto. Inicializa la clase con el ID de acelerómetro
      * no-wakeup (BHI260Driver::ID_ACCEL) y resetea la FIFO.
      */
-    ImuSensorDriver();
+    ImuRepository();
     
-    virtual ~ImuSensorDriver();
+    static ImuRepository* _instance;
+    static ImuRepository* createInstance();
+
+public:
+    virtual ~ImuRepository();
 
     // --- Métodos virtuales puros reescritos de SensorClass ---
     
@@ -100,25 +111,46 @@ public:
     uint16_t rewind(uint16_t steps);
 
     /**
-     * @brief Permite acceder a un elemento específico del buffer sin copiarlo.
+     * @brief Permite acceder a un elemento específico del buffer por copia protegido por Mutex.
      * @param index Índice lógico (0 es el dato más antiguo, getAvailableCount()-1 es el más nuevo).
-     * @return Puntero constante al dato, o nullptr si el índice está fuera de rango.
+     * @return Copia del dato, o un objeto default si el índice está fuera de rango.
      */
-    const DataXYZ* getElementAt(uint16_t index) const;
+    DataXYZ getElementAt(uint16_t index);
 
     /**
-     * @brief Extrae todos los datos actuales de la FIFO en bloque.
+     * @brief Permite acceder a un elemento específico del buffer por copia SIN proteger por Mutex.
+     */
+    DataXYZ getElementAtUnprotected(uint16_t index) const;
+
+    /**
+     * @brief Extrae todos los datos actuales de la FIFO en bloque (hace pop de los elementos).
      * @param buffer Puntero a un array provisto por el usuario donde se copiarán los datos.
      * @param maxLen Capacidad del buffer provisto (para evitar buffer overflow).
      * @return Cantidad de elementos extraídos.
      */
     uint16_t getFifoValues(DataXYZ* buffer, uint16_t maxLen);
 
+    /**
+     * @brief Copia los datos actuales de la FIFO sin extraerlos (sin pop).
+     */
+    uint16_t copyFifoValues(DataXYZ* buffer, uint16_t maxLen);
+
+    /**
+     * @brief Copia los datos actuales de la FIFO sin extraerlos, comenzando desde el índice indicado.
+     */
+    uint16_t copyFifoValues(DataXYZ* buffer, uint16_t maxLen, uint16_t index);
+
+    /**
+     * @brief Copia los datos actuales de la FIFO sin extraerlos y sin protección Mutex.
+     */
+    uint16_t copyFifoValuesUnprotected(DataXYZ* buffer, uint16_t maxLen, uint16_t index) const;
+
     // --- Métodos temporales de Test ---
     uint32_t getTotalPushed() const;
     void resetTotalPushed();
 
 private:
+    rtos::Mutex _mutex;
     DataXYZ _fifo[IMU_FIFO_SIZE];
     uint16_t _head;   // Índice donde se insertará el próximo elemento
     uint16_t _tail;   // Índice del elemento más antiguo para extraer

@@ -1,7 +1,20 @@
-#include "drivers/temperature_sensor_driver.h"
+#include "repositories/temperature_repository.h"
 #include "sensors/DataParser.h"
 
-TemperatureSensorDriver::TemperatureSensorDriver()
+TemperatureRepository* TemperatureRepository::_instance = nullptr;
+
+TemperatureRepository* TemperatureRepository::createInstance() {
+    if (_instance == nullptr) {
+        _instance = new TemperatureRepository();
+    }
+    return _instance;
+}
+
+TemperatureRepository* TemperatureRepository::getInstance() {
+    return createInstance();
+}
+
+TemperatureRepository::TemperatureRepository()
     : SensorClass(SENSOR_ID_TEMP), 
       _lastTemp(0.0f), 
       _lastUpdateMillis(0), 
@@ -9,10 +22,10 @@ TemperatureSensorDriver::TemperatureSensorDriver()
 {
 }
 
-TemperatureSensorDriver::~TemperatureSensorDriver() {
+TemperatureRepository::~TemperatureRepository() {
 }
 
-void TemperatureSensorDriver::setData(SensorDataPacket &data) {
+void TemperatureRepository::setData(SensorDataPacket &data) {
     float parsedData;
     // SENSOR_ID_TEMP utiliza P16BITSIGNED y factor de escala 0.01
     DataParser::parseData(data, parsedData, 0.01f, P16BITSIGNED);
@@ -25,24 +38,24 @@ void TemperatureSensorDriver::setData(SensorDataPacket &data) {
     setDataAvailFlag();
 }
 
-void TemperatureSensorDriver::setData(SensorLongDataPacket &data) {
+void TemperatureRepository::setData(SensorLongDataPacket &data) {
     // No utilizado por el sensor de temperatura
 }
 
-String TemperatureSensorDriver::toString() {
+String TemperatureRepository::toString() {
     return String("Temperature: ") + String(_lastTemp, 2) + " C";
 }
 
-bool TemperatureSensorDriver::isUpdated() const {
+bool TemperatureRepository::isUpdated() const {
     return _isUpdated;
 }
 
-float TemperatureSensorDriver::getTemp() {
+float TemperatureRepository::getTemp() {
     _isUpdated = false;
     clearDataAvailFlag(); // Limpiamos también el flag heredado
     return _lastTemp;
 }
 
-uint32_t TemperatureSensorDriver::getLastUpdateMillis() const {
+uint32_t TemperatureRepository::getLastUpdateMillis() const {
     return _lastUpdateMillis;
 }

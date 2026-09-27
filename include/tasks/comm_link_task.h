@@ -3,40 +3,52 @@
 #include <stdint.h>
 #include "tasks/app_messages.h"
 #include "utils/message_queue.h"
+#include "repositories/imu_repository.h"
+#include "repositories/pressure_repository.h"
 
+// Struct de métricas como template para el futuro
+struct MetricsData {
+    uint32_t step_count;
+    // Se pueden agregar más campos a futuro (batería, etc.)
+};
 
 class CommLinkTask {
-    // Permitimos que el SystemTask orqueste y envie mensajes a esta tarea
     friend class SystemTask;
 
 private:
-    // Constructor privado (Patron Singleton)
     CommLinkTask() {}
     ~CommLinkTask() {}
 
-    // Evitar copias
     CommLinkTask(const CommLinkTask&) = delete;
     CommLinkTask& operator=(const CommLinkTask&) = delete;
 
     rtos::Thread _thread;
     MessageQueue<AppMessage, 16> _comm_link_task_queue;
 
+    // Buffers locales para resguardo antes de enviar
+    DataXYZ _imu_tx_buffer[IMU_FIFO_SIZE];
+    float _pressure_tx_buffer[PRESSURE_FIFO_SIZE];
+    MetricsData _metrics_buffer;
+
     void run();
 
 protected:
-    // Protegido: Solo los 'friend' (como SystemTask) pueden encolar trabajos aca.
-    // Garantiza que nadie salte el esquema arquitectonico por error.
     bool sendMsg(AppMessage* msg);
 
-protected:
-    // Comandos y eventos exclusivos de esta tarea
+public:
+    // Comandos y eventos exclusivos de esta tarea (que mapean a lo que enviaremos)
     enum EventId : uint8_t {
-        CMD_TX_TELEMETRY,
-        CMD_TX_ALARM,
-        EVT_RX_PACKET,
+        CMD_TX_IMU_BUFFER      = 0x01,
+        CMD_TX_PRESSURE_BUFFER = 0x02,
+        CMD_TX_TEMPERATURE     = 0x03,
+        CMD_TX_ALARM           = 0x04,
+        CMD_TX_METRICS         = 0x05,
+        CMD_TX_KEEP_ALIVE      = 0x06,
+        CMD_TX_FALL_SENSORS    = 0x07,
+        CMD_TX_WARNING         = 0x08,
+        EVT_RX_PACKET          = 0x09
     };
 
-public:
     static CommLinkTask& getInstance() {
         static CommLinkTask instance;
         return instance;

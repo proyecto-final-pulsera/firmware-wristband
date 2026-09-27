@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include "test_imu_fifo.h"
-#include "drivers/imu_sensor_driver.h"
+#include "repositories/imu_repository.h"
 #include "drivers/bhi260_driver.h"
 #include <BoschSensortec.h>
 
@@ -16,11 +16,11 @@ void runImuFifoTest() {
     
     BHI260Driver* imu = BHI260Driver::getInstance();
     
-    // Instanciamos el objeto de manera ESTATICA para no desbordar el Stack del main thread
-    static ImuSensorDriver imuSensor;
+    // Obtenemos el singleton
+    ImuRepository* imuSensor = ImuRepository::getInstance();
     
     Serial.println("[DEBUG] Etapa 1/6: Configurando Acelerometro a 50Hz...");
-    imuSensor.begin(50.0f, 0); 
+    imuSensor->begin(50.0f, 0); 
     
     Serial.println("[DEBUG] Etapa 1.5/6: Configurando Tilt Detector (Wakeup)...");
     SensorConfigurationPacket cfgTilt;
@@ -34,7 +34,7 @@ void runImuFifoTest() {
     
     // Vaciamos basura residual de las FIFOs antes de arrancar
     imu->flushFIFOs();
-    imuSensor.fifoFlush();
+    imuSensor->fifoFlush();
     testInterruptTriggered = false;
 
     Serial.println("[DEBUG] Etapa 2/6: Desactivando host (AP Suspend).");
@@ -71,7 +71,7 @@ void runImuFifoTest() {
     imu->updateFifoData(); 
     
     // 5. Mostrar tamaño de la FIFO de la clase
-    uint16_t count = imuSensor.getAvailableCount();
+    uint16_t count = imuSensor->getAvailableCount();
     Serial.print("[DEBUG] Etapa 6/6: Elementos recolectados en la FIFO de memoria: ");
     Serial.println(count);
     
@@ -81,9 +81,9 @@ void runImuFifoTest() {
 
     // Mostrar los datos como X - Y - Z
     Serial.println("\n--- DATOS DE LA FIFO ---");
-    while(imuSensor.getAvailableCount() > 0) {
+    while(imuSensor->getAvailableCount() > 0) {
         DataXYZ data;
-        if(imuSensor.pop(data)) {
+        if(imuSensor->pop(data)) {
             Serial.print(data.x);
             Serial.print(" - ");
             Serial.print(data.y);
@@ -94,7 +94,7 @@ void runImuFifoTest() {
     Serial.println("------------------------");
 
     // Desuscribimos y apagamos
-    imuSensor.end();
+    imuSensor->end();
     cfgTilt.sampleRate = 0.0f; // Apagamos el Tilt
     imu->configureSensor(cfgTilt);
     
@@ -108,17 +108,17 @@ void runFifoDepthTest() {
     
     BHI260Driver* imu = BHI260Driver::getInstance();
     
-    // Instancia estática para no volar el stack
-    static ImuSensorDriver imuSensor;
+    // Obtenemos el singleton
+    ImuRepository* imuSensor = ImuRepository::getInstance();
     
     // Lo configuramos a una altísima velocidad: 800 Hz
     Serial.println("[DEBUG] Etapa 1: Configurando Acelerometro a 800Hz...");
-    imuSensor.begin(800.0f, 0); 
+    imuSensor->begin(800.0f, 0); 
     
     // Vaciamos basuras y reseteamos el contador de test
     imu->flushFIFOs();
-    imuSensor.fifoFlush();
-    imuSensor.resetTotalPushed();
+    imuSensor->fifoFlush();
+    imuSensor->resetTotalPushed();
 
     Serial.println("[DEBUG] Etapa 2: Apagando host y esperando 10 SEGUNDOS...");
     Serial.println("        -> Esto forzará el desborde del buffer interno del BHI260.");
@@ -139,11 +139,11 @@ void runFifoDepthTest() {
     imu->updateFifoData(); 
 
     Serial.print("[DEBUG] -> Paquetes totales extraidos de la HW FIFO: ");
-    Serial.println(imuSensor.getTotalPushed());
+    Serial.println(imuSensor->getTotalPushed());
     
     // Apagamos todo
     imu->disableNonWakeupFIFO();
-    imuSensor.end();
+    imuSensor->end();
     
     Serial.println("================================================\n");
 }

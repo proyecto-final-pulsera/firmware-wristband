@@ -2,63 +2,37 @@
 
 Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint backlog) para desarrollar el firmware correctamente. Iremos marcando las tareas a medida que las completemos.
 
-## Sprint Actual (24/09/2026)
+## Sprint Actual
 
-- [X] **Tarea 16 (Original 3): Driver de comunicación (Bypass Serie + Protocolo)**
-
-  - **Tiempo estimado:** 7 horas
-  - **Descripción:** Definir métodos del driver y proveer un bypass para transmitir por puerto serie en lugar de BLE. Se debe implementar un protocolo de tramas simple (ej. `[START] [TIPO] [PAYLOAD] [CHECKSUM]`). Crear script en Python para recibir y parsear.
-  - **Criterio de aceptación:** Enviar datos del acelerómetro y barómetro por serie de forma transparente al sistema y poder verlos parseados en el script de Python.
-- [X] **Tarea 17: Comunicación de Temperatura**
-
-  - **Descripción:** Implementar el envío de datos de temperatura a través del driver de comunicación utilizando el protocolo de tramas definido.
-  - **Criterio de aceptación:** Los datos de temperatura se transmiten correctamente por serie con el formato de trama correspondiente.
-- [X] **Tarea 18: Validación de Comunicación de Temperatura**
-
-  - **Descripción:** Verificar que los datos de temperatura recibidos en el script de Python coincidan con los valores leídos por el sensor. Validar integridad de trama (checksum) y parseo correcto.
-  - **Criterio de aceptación:** El script Python muestra los valores de temperatura parseados correctamente y sin errores de integridad.
-- [X] **Tarea 19: Comunicación de Métricas**
-
-  - **Descripción:** Implementar el envío de métricas del sistema (batería, estado, etc.) a través del driver de comunicación utilizando el protocolo de tramas definido.
-  - **Criterio de aceptación:** Las métricas se transmiten correctamente por serie con el formato de trama correspondiente.
-- [X] **Tarea 20: Validación de Comunicación de Métricas**
-
-  - **Descripción:** Verificar que las métricas recibidas en el script de Python coincidan con los valores reales del sistema. Validar integridad de trama y parseo correcto.
-  - **Criterio de aceptación:** El script Python muestra las métricas parseadas correctamente y sin errores de integridad.
-- [X] **Tarea 21: Comunicación de Keep Alive**
-
-  - **Descripción:** Implementar el envío periódico de un mensaje de keep alive a través del driver de comunicación, para que el receptor confirme que la pulsera sigue activa y conectada.
-  - **Criterio de aceptación:** El mensaje de keep alive se transmite periódicamente por serie con el formato de trama correspondiente.
-- [X] **Tarea 22: Validación de Comunicación de Keep Alive**
-
-  - **Descripción:** Verificar que los mensajes de keep alive llegan al script de Python con la periodicidad esperada. Validar integridad de trama y detección de timeout ante desconexión.
-  - **Criterio de aceptación:** El script Python detecta los keep alive periódicos y reporta correctamente si se pierde la comunicación.
-- [X] **Tarea 23: Comunicación de Caída**
-
-  - **Descripción:** Implementar el envío del evento de caída (con su snapshot de datos del buffer) a través del driver de comunicación utilizando el protocolo de tramas definido.
-  - **Criterio de aceptación:** El evento de caída se transmite correctamente por serie con el formato de trama correspondiente, incluyendo el payload de datos del sensor.
-- [X] **Tarea 24: Validación de Comunicación de Caída**
-
-  - **Descripción:** Verificar que el evento de caída recibido en el script de Python contenga los datos esperados del snapshot. Validar integridad de trama, parseo correcto y que no haya pérdida de datos.
-  - **Criterio de aceptación:** El script Python muestra el evento de caída con todos los datos del snapshot parseados correctamente y sin errores de integridad.
-- [X] **Tarea 25 (Backlog 4): Mecanismos de comunicación entre tareas**
-
-  - **Tiempo estimado:** 3 horas
-  - **Descripción:** Definir e implementar los mecanismos (colas, semáforos, event groups) basados en la arquitectura de la tarea 1.
-  - **Criterio de aceptación:** Mecanismos del RTOS creados, inicializados y listos para ser utilizados por las tareas.
-- [ ] **Tarea 26: Mecanismos de protección en drivers (escritura y lectura de buffers)**
-
-  - **Descripción:** Implementar protección de concurrencia (mutex, critical sections) en las operaciones de escritura y lectura de los buffers circulares de los drivers de sensores (IMU, presión, temperatura). Garantizar que no existan race conditions entre el thread productor (ISR/recolector) y el consumidor (processing task).
-  - **Criterio de aceptación:** Los buffers de los drivers soportan acceso concurrente sin corrupción de datos. Se puede demostrar que un hilo escribe y otro lee simultáneamente sin errores.
-- [X] **Tarea 27: Unificación de términos de inicialización y Singletons**
-
-  - **Descripción:** Estandarizar las firmas de inicialización en todos los drivers (ej. unificar el uso de `init()`). Además, unificar la nomenclatura y los métodos de los patrones Singleton en todo el proyecto para que todos usen la misma convención (ej. decidir entre `createInstance()` o `getInstance()`, o cómo se relacionan entre sí).
-  - **Criterio de aceptación:** Todos los drivers y tareas presentan la misma convención de nombrado para su ciclo de vida, inicialización y acceso a su instancia única.
 - [ ] **Tarea 28: Refactor de InterfaceDriver y ButtonDriver**
 
   - **Descripción:** El driver de pulsador y manejo de interrupciones actual no es claro (`InterfaceDriver`). Se debe instanciar la ISR fuera de la clase (en `app.cpp` junto a las demás) y hacer que la Tarea (`SystemTask` o `AlarmsEventsTask`) corra la MDE correspondiente.
   - **Criterio de aceptación:** La clase `InterfaceDriver` queda libre de acoplamientos de semáforos e ISRs ocultas, cediendo el control del polling/MDE a las tareas del RTOS.
+
+
+- [ ] **Tarea 6: Tarea de alarma y eventos**
+  - **Tiempo estimado:** 5 horas
+  - **Descripción:** Atender eventos de caída y botón de pánico. Controlar transiciones de estado según el IMU o el botón.
+  - **Criterio de aceptación:** Recibir por puerto serie un print de los eventos generados, verificando que el RTOS permite ejecutar esto con una tarea de menor prioridad corriendo simultáneamente (sin bloqueos).
+
 ## Sprints Previos (Tareas Completadas)
+
+### Sprint 4 y Tareas Completadas Recientes
+
+- [X] **Tarea 5: Tarea de comunicación y link (Parte 1)**
+  - **Descripción:** Implementar el envío de datos de los sensores en la tarea de comunicación.
+- [X] **Tarea 16 (Original 3): Driver de comunicación (Bypass Serie + Protocolo)**
+- [X] **Tarea 17: Comunicación de Temperatura**
+- [X] **Tarea 18: Validación de Comunicación de Temperatura**
+- [X] **Tarea 19: Comunicación de Métricas**
+- [X] **Tarea 20: Validación de Comunicación de Métricas**
+- [X] **Tarea 21: Comunicación de Keep Alive**
+- [X] **Tarea 22: Validación de Comunicación de Keep Alive**
+- [X] **Tarea 23: Comunicación de Caída**
+- [X] **Tarea 24: Validación de Comunicación de Caída**
+- [X] **Tarea 25 (Backlog 4): Mecanismos de comunicación entre tareas**
+- [X] **Tarea 26: Mecanismos de protección en drivers (escritura y lectura de buffers)**
+- [X] **Tarea 27: Unificación de términos de inicialización y Singletons**
 
 ### Sprint 1: Inicialización
 
@@ -112,18 +86,6 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 ---
 
 ## 3. Backlog (Próximos Sprints)
-
-### 5. Tarea de comunicación y link (Parte 1)
-
-* **Tiempo estimado:** 4 horas
-* **Descripción:** Implementar el envío de datos de los sensores en la tarea de comunicación.
-* **Criterio de aceptación:** Activar mediante puerto serie los semáforos/queues de envío, y enviar los datos usando el bypass del driver de comunicación.
-
-### 6. Tarea de alarma y eventos
-
-* **Tiempo estimado:** 5 horas
-* **Descripción:** Atender eventos de caída y botón de pánico. Controlar transiciones de estado según el IMU o el botón.
-* **Criterio de aceptación:** Recibir por puerto serie un print de los eventos generados, verificando que el RTOS permite ejecutar esto con una tarea de menor prioridad corriendo simultáneamente (sin bloqueos).
 
 ### 7. HITO: HW de la pulsera listo para usar
 
@@ -220,6 +182,7 @@ Estas tareas representan los grandes bloques de trabajo (Epics) que deberán ser
 
 ## 5. Recordatorios y Notas
 
+- **TODO (Pendiente):** Implementación del método de linkeo/emparejamiento (pairing/bonding) del dispositivo al celular.
 - **Batería:** Modificar la carga máxima a 4.13V. *(Prueba sugerida: dejarla cargando más tiempo para validar si efectivamente la tensión sube hasta ese máximo).*
 - **Procesamiento de Buffer IMU:**
   - **Contexto:** Los datos se escriben en la clase (posiblemente por un thread recolector) y otro thread se encargará de procesarlos.

@@ -10,6 +10,7 @@ MSG_TEMPERATURE = 0x03
 MSG_ALARM = 0x04
 MSG_METRICS = 0x05
 MSG_KEEP_ALIVE = 0x06
+MSG_WARNING = 0x08
 
 # Tabla de búsqueda para CRC-8 (Polinomio 0x07)
 CRC8_TABLE = [
@@ -185,9 +186,16 @@ def main():
                         print(f"\n[TELEMETRÍA] Métricas (Pasos): +{new_steps} | Total Acumulado: {total_steps}")
                         
                 elif msg_type == MSG_ALARM:
-                    print(f"\n================================================")
-                    print(f" [ALERTA CRÍTICA] ¡EVENTO DE CAÍDA DETECTADO!")
-                    print(f"================================================")
+                    if msg_len >= 1:
+                        alarm_id = payload[0]
+                        print(f"\n================================================")
+                        print(f" [ALERTA CRÍTICA] ¡EVENTO DETECTADO! ID: {alarm_id}")
+                        print(f"================================================")
+                    
+                elif msg_type == MSG_WARNING:
+                    if msg_len >= 1:
+                        warn_id = payload[0]
+                        print(f"\n[WARNING] Se recibió una advertencia. ID: {warn_id}")
                     
                 elif msg_type == MSG_KEEP_ALIVE:
                     # Imprimimos de manera discreta para no ensuciar mucho la consola

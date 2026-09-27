@@ -29,7 +29,7 @@ VibratorDriver::VibratorDriver() :
     _pwm_pin(nullptr),
     _enable_pin(nullptr)
 {
-    init();
+    // El init() debe llamarse explicitamente por App::init()
 }
 
 void VibratorDriver::init() {

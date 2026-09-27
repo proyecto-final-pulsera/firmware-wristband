@@ -1,17 +1,30 @@
-#include "drivers/imu_sensor_driver.h"
+#include "repositories/imu_repository.h"
 
-ImuSensorDriver::ImuSensorDriver() 
+ImuRepository* ImuRepository::_instance = nullptr;
+
+ImuRepository* ImuRepository::createInstance() {
+    if (_instance == nullptr) {
+        _instance = new ImuRepository();
+    }
+    return _instance;
+}
+
+ImuRepository* ImuRepository::getInstance() {
+    return createInstance();
+}
+
+ImuRepository::ImuRepository() 
     : SensorClass(SENSOR_ID_ACC_PASS), 
       _head(0), _tail(0), _count(0), _overflow(false), _totalPushed(0)
 {
     // Constructor llama al padre SensorClass pasándole el ID de Acelerómetro
 }
 
-ImuSensorDriver::~ImuSensorDriver() {
+ImuRepository::~ImuRepository() {
     // Destructor
 }
 
-void ImuSensorDriver::setData(SensorDataPacket &data) {
+void ImuRepository::setData(SensorDataPacket &data) {
     // Parseamos el paquete nativo a un DataXYZ
     DataXYZ parsedData;
     DataParser::parse3DVector(data, parsedData);
@@ -26,15 +39,16 @@ void ImuSensorDriver::setData(SensorDataPacket &data) {
     setDataAvailFlag();
 }
 
-void ImuSensorDriver::setData(SensorLongDataPacket &data) {
+void ImuRepository::setData(SensorLongDataPacket &data) {
     // No utilizado para este tipo de sensor (Acelerómetro usa paquetes cortos)
 }
 
-String ImuSensorDriver::toString() {
+String ImuRepository::toString() {
     return _lastData.toString();
 }
 
-void ImuSensorDriver::fifoFlush() {
+void ImuRepository::fifoFlush() {
+    rtos::ScopedMutexLock lock(_mutex);
     _head = 0;
     _tail = 0;
     _count = 0;
@@ -43,7 +57,7 @@ void ImuSensorDriver::fifoFlush() {
     clearDataAvailFlag();
 }
 
-bool ImuSensorDriver::push(const DataXYZ& data) {
+bool ImuRepository::push(const DataXYZ& data) {
     bool overwritten = false;
     
     _totalPushed++; // Contamos estadísticamente cuántos ingresaron
@@ -63,7 +77,7 @@ bool ImuSensorDriver::push(const DataXYZ& data) {
     return !overwritten;
 }
 
-bool ImuSensorDriver::pop(DataXYZ& data) {
+bool ImuRepository::pop(DataXYZ& data) {
     if (_count == 0) {
         return false; // FIFO vacía
     }
@@ -75,23 +89,23 @@ bool ImuSensorDriver::pop(DataXYZ& data) {
     return true;
 }
 
-uint16_t ImuSensorDriver::getAvailableCount() const {
+uint16_t ImuRepository::getAvailableCount() const {
     return _count;
 }
 
-bool ImuSensorDriver::isFull() const {
+bool ImuRepository::isFull() const {
     return _count == IMU_FIFO_SIZE;
 }
 
-bool ImuSensorDriver::hasOverflowed() const {
+bool ImuRepository::hasOverflowed() const {
     return _overflow;
 }
 
-void ImuSensorDriver::clearOverflow() {
+void ImuRepository::clearOverflow() {
     _overflow = false;
 }
 
-uint16_t ImuSensorDriver::rewind(uint16_t steps) {
+uint16_t ImuRepository::rewind(uint16_t steps) {
     // Calculamos el historial máximo físicamente presente en la memoria
     uint32_t totalValid = (_totalPushed < IMU_FIFO_SIZE) ? _totalPushed : IMU_FIFO_SIZE;
     uint16_t maxRewind = totalValid - _count;
@@ -108,14 +122,20 @@ uint16_t ImuSensorDriver::rewind(uint16_t steps) {
     return actualRewind;
 }
 
-const DataXYZ* ImuSensorDriver::getElementAt(uint16_t index) const {
-    if (index >= _count) {
-        return nullptr;
-    }
-    return &_fifo[(_tail + index) % IMU_FIFO_SIZE];
+DataXYZ ImuRepository::getElementAt(uint16_t index) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return getElementAtUnprotected(index);
 }
 
-uint16_t ImuSensorDriver::getFifoValues(DataXYZ* buffer, uint16_t maxLen) {
+DataXYZ ImuRepository::getElementAtUnprotected(uint16_t index) const {
+    if (index >= _count) {
+        return DataXYZ();
+    }
+    return _fifo[(_tail + index) % IMU_FIFO_SIZE];
+}
+
+uint16_t ImuRepository::getFifoValues(DataXYZ* buffer, uint16_t maxLen) {
+    rtos::ScopedMutexLock lock(_mutex);
     uint16_t extracted = 0;
     
     // Sacamos datos hasta vaciar la FIFO o llenar el buffer provisto
@@ -127,10 +147,37 @@ uint16_t ImuSensorDriver::getFifoValues(DataXYZ* buffer, uint16_t maxLen) {
     return extracted;
 }
 
-uint32_t ImuSensorDriver::getTotalPushed() const {
+uint16_t ImuRepository::copyFifoValues(DataXYZ* buffer, uint16_t maxLen) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return copyFifoValuesUnprotected(buffer, maxLen, 0);
+}
+
+uint16_t ImuRepository::copyFifoValues(DataXYZ* buffer, uint16_t maxLen, uint16_t index) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return copyFifoValuesUnprotected(buffer, maxLen, index);
+}
+
+uint16_t ImuRepository::copyFifoValuesUnprotected(DataXYZ* buffer, uint16_t maxLen, uint16_t index) const {
+    if (index >= _count) {
+        return 0;
+    }
+
+    uint16_t elementsToCopy = _count - index;
+    if (elementsToCopy > maxLen) {
+        elementsToCopy = maxLen;
+    }
+    
+    for (uint16_t i = 0; i < elementsToCopy; i++) {
+        buffer[i] = _fifo[(_tail + index + i) % IMU_FIFO_SIZE];
+    }
+    
+    return elementsToCopy;
+}
+
+uint32_t ImuRepository::getTotalPushed() const {
     return _totalPushed;
 }
 
-void ImuSensorDriver::resetTotalPushed() {
+void ImuRepository::resetTotalPushed() {
     _totalPushed = 0;
 }

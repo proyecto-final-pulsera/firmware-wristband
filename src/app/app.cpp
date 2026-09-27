@@ -15,6 +15,12 @@
 #include "drivers/ble_driver.h"
 #include "drivers/vibrator_driver.h"
 
+// Repositories
+#include "repositories/imu_repository.h"
+#include "repositories/pressure_repository.h"
+#include "repositories/temperature_repository.h"
+#include "repositories/event_repository.h"
+
 // ============================================================================
 // RUTINAS DE SERVICIO DE INTERRUPCION (ISRs)
 // ============================================================================
@@ -57,6 +63,19 @@ void App::init() {
     // Comunicaciones
     SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
     serialDriver->init();
+    
+    // ------------------------------------------------------------------------
+    // 1.5 Inicializar Repositorios de Sensores
+    // ------------------------------------------------------------------------
+    bhi260->enableNonWakeupFIFO();
+    
+    ImuRepository::getInstance()->begin((float)FREQ_IMU, 3000); 
+    PressureRepository::getInstance()->begin((float)FREQ_PRESSURE, 3000);
+    TemperatureRepository::getInstance()->begin(1.0f, (uint32_t)-1);
+
+    MotionRepository::getInstance()->begin(1.0f, 0);
+    NoMotionRepository::getInstance()->begin(1.0f, 0);
+    StepCounterRepository::getInstance()->begin(1.0f, (uint32_t)-1);
     
     
     // ------------------------------------------------------------------------

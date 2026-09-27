@@ -2,10 +2,10 @@
 #include "test_sensors_drivers.h"
 
 #include "drivers/bhi260_driver.h"
-#include "drivers/imu_sensor_driver.h"
-#include "drivers/pressure_sensor_driver.h"
-#include "drivers/temperature_sensor_driver.h"
-#include "drivers/event_sensor_driver.h"
+#include "repositories/imu_repository.h"
+#include "repositories/pressure_repository.h"
+#include "repositories/temperature_repository.h"
+#include "repositories/event_repository.h"
 
 // Utilizamos SENSOR_ID_ANY_MOTION_WU (143) y SENSOR_ID_STATIONARY_DET (75) que ya vienen nativos en Arduino_BHY2
 
@@ -24,30 +24,30 @@ void runSensorsDriversTest() {
     
     BHI260Driver* bhi = BHI260Driver::getInstance();
 
-    // 1. Instanciar todos los drivers (Static para no desbordar el stack del main)
-    static ImuSensorDriver imuDriver;
-    static PressureSensorDriver pressureDriver;
-    static TemperatureSensorDriver tempDriver;
+    // 1. Instanciar todos los drivers (Singletons)
+    ImuRepository* imuDriver = ImuRepository::getInstance();
+    PressureRepository* pressureDriver = PressureRepository::getInstance();
+    TemperatureRepository* tempDriver = TemperatureRepository::getInstance();
     
     // Instanciamos los de evento (WAKE UP)
-    static EventSensorDriver motionEvent(SENSOR_ID_MOTION_DET);
-    static EventSensorDriver noMotionEvent(SENSOR_ID_STATIONARY_DET); 
+    MotionRepository* motionEvent = MotionRepository::getInstance();
+    NoMotionRepository* noMotionEvent = NoMotionRepository::getInstance(); 
 
     // 2. Configurar y encender los sensores en el BHI260
     Serial.println("[DEBUG] Configurando Sensores Continuos (NON WAKE-UP)...");
-    imuDriver.begin((float)FREQ_IMU, 3000);       // IMU a 50Hz, 3s latencia
-    pressureDriver.begin((float)FREQ_PRESSURE,(uint32_t) -1);  // Barómetro a 16Hz, no interrumpe
-    tempDriver.begin(1.0f,(uint32_t) -1);       // Temperatura a 1Hz
+    imuDriver->begin((float)FREQ_IMU, 3000);       // IMU a 50Hz, 3s latencia
+    pressureDriver->begin((float)FREQ_PRESSURE,(uint32_t) -1);  // Barómetro a 16Hz, no interrumpe
+    tempDriver->begin(1.0f,(uint32_t) -1);       // Temperatura a 1Hz
 
     Serial.println("[DEBUG] Configurando Sensores de Evento (WAKE-UP)...");
-    motionEvent.begin(1.0f, 0);
-    noMotionEvent.begin(1.0f, 0);
+    motionEvent->begin(1.0f, 0);
+    noMotionEvent->begin(1.0f, 0);
 
     // Esperamos para que el sensor aplique internamente la configuración
     delay(100);
 
     // Consultamos la configuración real que quedó aplicada
-    SensorConfig imuCfg = imuDriver.getConfiguration();
+    SensorConfig imuCfg = imuDriver->getConfiguration();
     Serial.print("[DEBUG] CONFIG IMU -> Sample Rate: ");
     Serial.print(imuCfg.sample_rate);
     Serial.print(" Hz, Latency: ");
@@ -55,7 +55,7 @@ void runSensorsDriversTest() {
     Serial.print(" ms, Range: ");
     Serial.println(imuCfg.range);
 
-    SensorConfig pressCfg = pressureDriver.getConfiguration();
+    SensorConfig pressCfg = pressureDriver->getConfiguration();
     Serial.print("[DEBUG] CONFIG PRESSURE -> Sample Rate: ");
     Serial.print(pressCfg.sample_rate);
     Serial.print(" Hz, Latency: ");
@@ -88,10 +88,10 @@ void runSensorsDriversTest() {
             bhi->updateFifoData();
             
             // Chequear eventos de Wake Up
-            if (motionEvent.hasEventOccurred()) {
+            if (motionEvent->hasEventOccurred()) {
                 Serial.println("[EVENTO] -> MOTION DETECTADO!");
-                motionEvent.clearEventFlag();
-                noMotionEvent.begin(1.0f, 0);
+                motionEvent->clearEventFlag();
+                noMotionEvent->begin(1.0f, 0);
                 
     
                 
@@ -100,16 +100,16 @@ void runSensorsDriversTest() {
                     Serial.println("         -> Habilitando Non-Wakeup FIFO (IMU/Press/Temp on)");
                     bhi->enableNonWakeupFIFO();
                     bhi->updateFifoData();
-                    imuDriver.fifoFlush();
-                    pressureDriver.fifoFlush();
+                    imuDriver->fifoFlush();
+                    pressureDriver->fifoFlush();
                     isNonWakeupActive = true;
                 }
             }
 
-            if (noMotionEvent.hasEventOccurred()) {
+            if (noMotionEvent->hasEventOccurred()) {
                 Serial.println("[EVENTO] -> NO MOTION (Stationary) DETECTADO!");
-                noMotionEvent.clearEventFlag();
-                motionEvent.begin(1.0f, 0);
+                noMotionEvent->clearEventFlag();
+                motionEvent->begin(1.0f, 0);
                 
                 // Si la placa se queda quieta, volvemos a suspender los datos continuos para ahorrar batería
                 if (isNonWakeupActive) {
@@ -123,24 +123,24 @@ void runSensorsDriversTest() {
             // Verificamos llenado de los buffers de las clases wrapper
             if(isNonWakeupActive){ 
                 Serial.print("IMU Datos Push: ");
-                Serial.println(imuDriver.getTotalPushed());
+                Serial.println(imuDriver->getTotalPushed());
                 Serial.print("Press Datos Push: ");
-                Serial.println(pressureDriver.getTotalPushed());
+                Serial.println(pressureDriver->getTotalPushed());
             }
-            if (imuDriver.isFull()) {
+            if (imuDriver->isFull()) {
                 Serial.println("[BUFF LLENO] Sensor IMU saturado. Procediendo a vaciar...");
-                imuDriver.fifoFlush();
+                imuDriver->fifoFlush();
             }
 
-            if (pressureDriver.isFull()) {
+            if (pressureDriver->isFull()) {
                 Serial.println("[BUFF LLENO] Sensor PRESION saturado. Procediendo a vaciar...");
-                pressureDriver.fifoFlush();
+                pressureDriver->fifoFlush();
             }
 
             //Consumimos temperatura si hay nueva para limpiar su flag
-            if (tempDriver.isUpdated()) {
+            if (tempDriver->isUpdated()) {
                 Serial.print("Temperatura Actualizada: ");
-                Serial.println(tempDriver.getTemp());
+                Serial.println(tempDriver->getTemp());
             }
             
             
@@ -149,11 +149,11 @@ void runSensorsDriversTest() {
     }
 
     // 6. Apagar sensores al terminar
-    imuDriver.end();
-    pressureDriver.end();
-    // tempDriver.end();
-    motionEvent.end();
-    noMotionEvent.end();
+    imuDriver->end();
+    pressureDriver->end();
+    // tempDriver->end();
+    motionEvent->end();
+    noMotionEvent->end();
     
     bhi->enableNonWakeupFIFO(); // Dejarlo prendido por las dudas para el resto del firmware
     

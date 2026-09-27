@@ -4,15 +4,21 @@
 #include "drivers/bhi260_driver.h"
 
 /**
- * @brief Driver de alto nivel para el sensor de Temperatura.
+ * @brief Repository de alto nivel para el sensor de Temperatura.
  * A diferencia de IMU y Presión, no utiliza FIFO. Conserva únicamente 
  * el último valor censado junto con su marca de tiempo (timestamp).
  */
-class TemperatureSensorDriver : public SensorClass {
+class TemperatureRepository : public SensorClass {
 public:
-    TemperatureSensorDriver();
-    virtual ~TemperatureSensorDriver();
+    static TemperatureRepository* getInstance();
+    virtual ~TemperatureRepository();
 
+private:
+    TemperatureRepository();
+    static TemperatureRepository* _instance;
+    static TemperatureRepository* createInstance();
+
+public:
     // --- Métodos virtuales puros reescritos de SensorClass ---
     void setData(SensorDataPacket &data) override;
     void setData(SensorLongDataPacket &data) override;
