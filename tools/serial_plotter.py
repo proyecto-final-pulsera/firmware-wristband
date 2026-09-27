@@ -39,7 +39,7 @@ def calculate_crc8(data: bytes, initial_crc: int = 0x00) -> int:
     return crc
 
 def main():
-    port = "COM6"
+    port = "COM5"
     baud = 115200
 
     # Inicializar Puerto Serie

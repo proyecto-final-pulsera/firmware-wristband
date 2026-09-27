@@ -37,6 +37,7 @@ protected:
     // Comandos y eventos exclusivos de esta tarea
     enum EventId : uint8_t {
         CMD_PROCESS_IMU,
+        CMD_PROCESS_IMU_WAKEUP,
         CMD_STOP_PROCESS,
         EVT_PANIC_BUTTON,
     };
@@ -46,9 +47,16 @@ protected:
     // Funciones matematicas de aproximacion 3D
     static inline uint16_t approx_2d_improved(uint16_t a, uint16_t b);
     uint16_t suma_pitagorica(int16_t x, int16_t y, int16_t z);
+
+    #define FLAG_FREE_FALL 0x01
+    #define FLAG_IMPACT    0x02
+    #define FLAG_FALL_DETECTED (FLAG_FREE_FALL | FLAG_IMPACT)
+
+    // Funcion auxiliar para evaluar la ventana
+    uint8_t evaluateWindow(DataXYZ* buffer, uint16_t len);
     
     // Funcion de procesamiento
-    void processImuWindow();
+    void processImuWindow(bool process_preFall);
 
 public:
     static AlarmsEventsTask& getInstance() {

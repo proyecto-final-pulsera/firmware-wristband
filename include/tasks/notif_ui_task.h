@@ -36,6 +36,8 @@ protected:
         CMD_BUZZER_BEEP,
     };
 
+    #define PRE_FALL_PROCESSED (1 << 0)
+
 public:
     static NotifUiTask& getInstance() {
         static NotifUiTask instance;

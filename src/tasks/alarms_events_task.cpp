@@ -1,4 +1,5 @@
 #include "tasks/alarms_events_task.h"
+#include "tasks/notif_ui_task.h"
 
 #include "mbed.h"
 
@@ -60,7 +61,10 @@ void AlarmsEventsTask::run() {
             // Procesar el mensaje recibido
             switch (msg.event_id) {
                 case CMD_PROCESS_IMU:
-                    processImuWindow();
+                    processImuWindow(false);
+                    break;
+                case CMD_PROCESS_IMU_WAKEUP:
+                    processImuWindow(true);
                     break;
                 case CMD_STOP_PROCESS:
                     // Actualmente no tiene efecto en procesamiento on-demand
@@ -72,71 +76,108 @@ void AlarmsEventsTask::run() {
     }
 }
 
-void AlarmsEventsTask::processImuWindow() {
+uint8_t AlarmsEventsTask::evaluateWindow(DataXYZ* buffer, uint16_t len) {
+    uint8_t flags = 0;
+    uint16_t magnitudes[IMPACT_WINDOW_SIZE];
+    
+    uint16_t process_len = (len > IMPACT_WINDOW_SIZE) ? IMPACT_WINDOW_SIZE : len;
+
+    for (uint16_t k = 0; k < process_len; k++) {
+        magnitudes[k] = suma_pitagorica(
+            buffer[k].x, 
+            buffer[k].y, 
+            buffer[k].z
+        );
+    }
+
+    if (process_len <= SLIDING_WINDOW_SIZE) return flags;
+
+    for (uint16_t i = 0; i <= process_len - SLIDING_WINDOW_SIZE; i++) {
+        uint32_t sum_magnitud_ventana = 0;
+
+        for (uint16_t j = 0; j < SLIDING_WINDOW_SIZE; j++) {
+            sum_magnitud_ventana += magnitudes[i + j];
+        }
+
+        uint16_t promedio_ventana = sum_magnitud_ventana >> SLIDING_WINDOW_SHIFT;
+
+        if (promedio_ventana < THRESHOLD_FREE_FALL) {
+            if (!(flags & FLAG_FREE_FALL)) {
+#ifdef DEBUG
+                Serial.print("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: ");
+                Serial.println(promedio_ventana);
+#endif
+            }
+            flags |= FLAG_FREE_FALL;
+        }
+        
+        if (promedio_ventana > THRESHOLD_IMPACT) {
+            if (!(flags & FLAG_IMPACT)) {
+#ifdef DEBUG
+                Serial.print("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: ");
+                Serial.println(promedio_ventana);
+#endif
+            }
+            flags |= FLAG_IMPACT;
+        }
+        
+        if (flags == FLAG_FALL_DETECTED) {
+            return flags;
+        }
+    }
+    return flags;
+}
+
+void AlarmsEventsTask::processImuWindow(bool process_preFall) {
+#ifdef DEBUG
+    unsigned long t_start = micros();
+#endif
+    
     ImuRepository* imu = ImuRepository::getInstance();
     
-    // Verificamos que el buffer esté teóricamente lleno. 
-    // Si no está lleno, descartamos esta tanda y no procesamos.
     if (imu->getAvailableCount() < IMU_FIFO_SIZE) {
         return; 
     }
 
-    // Índice fijo para sacar la ventana del medio exacto del buffer
-    
-    // TODO: Optimizar esto, ya que no deberia ser necesario procesar toda la ventana continuamente 
-    // en cada ciclo del procesador (existe un solapamiento y se puede desplazar la ventana).
-    uint16_t len = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, START_IMPACT_WINDOW_INDEX);
+    uint8_t fall_flags = 0;
 
-    if (len < IMPACT_WINDOW_SIZE) {
-        return; 
+    // Procesamiento del inicio del buffer en caso de WAKEUP
+    if (process_preFall) {
+        uint16_t len = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, 0);
+        if (len != 0) {
+            fall_flags |= evaluateWindow(_imu_window_buffer, len);
+        }
     }
 
-    bool flag_caida_libre = false;
-    bool flag_impacto = false;
-
-    // Recorremos buscando la ventana pequeña (SLIDING_WINDOW_SIZE)
-    for (uint16_t i = 0; i <= len - SLIDING_WINDOW_SIZE; i++) {
-        uint32_t sum_magnitud_ventana = 0;
-
-        for (uint16_t j = 0; j < SLIDING_WINDOW_SIZE; j++) {
-            sum_magnitud_ventana += suma_pitagorica(
-                _imu_window_buffer[i + j].x, 
-                _imu_window_buffer[i + j].y, 
-                _imu_window_buffer[i + j].z
-            );
+    // Segunda etapa (o única si no es wakeup): ventana del medio
+    if (fall_flags != FLAG_FALL_DETECTED) {
+        uint16_t len = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, START_IMPACT_WINDOW_INDEX);
+        if (len != 0) {
+            fall_flags |= evaluateWindow(_imu_window_buffer, len);
         }
+    }
 
-        // Promedio usando bitshift en lugar de división (SLIDING_WINDOW_SIZE debe ser 8)
-        uint16_t promedio_ventana = sum_magnitud_ventana >> SLIDING_WINDOW_SHIFT;
-
-        if (promedio_ventana < THRESHOLD_FREE_FALL) {
-            if (!flag_caida_libre) {
-                Serial.print("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: ");
-                Serial.println(promedio_ventana);
-            }
-            flag_caida_libre = true;
-        }
+    if (fall_flags != 0 && fall_flags == FLAG_FALL_DETECTED) {
+#ifdef DEBUG
+        Serial.println("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
+#endif
         
-        if (promedio_ventana > THRESHOLD_IMPACT) {
-            if (!flag_impacto) {
-                Serial.print("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: ");
-                Serial.println(promedio_ventana);
-            }
-            flag_impacto = true;
-        }
+        AppMessage caidaMsg;
+        caidaMsg.event_id = CommLinkTask::CMD_TX_FALL_SENSORS;
+        caidaMsg.emisor_id = TASK_ALARMS_EVENTS;
+        CommLinkTask::getInstance().sendMsg(&caidaMsg);
 
-        // Si detectamos ambas condiciones en la ventana de 6 segundos...
-        if (flag_caida_libre && flag_impacto) {
-            // CONDICION DE CAIDA
-            Serial.println("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
-
-            // (Acá se deberá enviar un mensaje de notificación de caída)
-            AppMessage caidaMsg;
-            caidaMsg.event_id = CommLinkTask::CMD_TX_FALL_SENSORS;
-            caidaMsg.emisor_id = TASK_ALARMS_EVENTS;
-            CommLinkTask::getInstance().sendMsg(&caidaMsg);
-            // Rompemos el ciclo para no procesar el resto si ya determinamos que hay caída
-            break; 
-        }
+        AppMessage alarmMsg;
+        alarmMsg.event_id = CommLinkTask::CMD_TX_ALARM;
+        alarmMsg.emisor_id = TASK_ALARMS_EVENTS;
+        // Dependiendo si se activó el procesamiento del pre-fall, enviamos el flag
+        alarmMsg.flags = process_preFall ? PRE_FALL_PROCESSED : 0;
+        CommLinkTask::getInstance().sendMsg(&alarmMsg);
     }
+
+#ifdef DEBUG
+    unsigned long t_end = micros();
+    Serial.print("[AlarmsEventsTask] Tiempo de procesamiento (us): ");
+    Serial.println(t_end - t_start);
+#endif
 }

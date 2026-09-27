@@ -37,18 +37,31 @@ void SystemTask::run() {
 
     BHI260Driver* bhi = BHI260Driver::getInstance();
     
+#ifdef DEBUG
     Serial.println("Tarea Sys iniciada - MODO TEST ALARMS EVENTS");
+#endif
+
+    ImuRepository* imu = ImuRepository::getInstance();
+    while(imu->getAvailableCount() < IMU_FIFO_SIZE){
+         rtos::ThisThread::sleep_for(std::chrono::milliseconds(3000));
+         bhi->updateFifoData();
+    }
+    
+    msg.event_id = AlarmsEventsTask::CMD_PROCESS_IMU_WAKEUP;
+    msg.emisor_id = TASK_SYSTEM;
+    msg.priority_level = PRIORITY_NORMAL;
+    AlarmsEventsTask::getInstance().sendMsg(&msg);
+
     while (true) {
         // Dormir la aplicacion por 3 segundos
         rtos::ThisThread::sleep_for(std::chrono::milliseconds(3000));
 
-        // Pedir los datos de la FIFO del sensor
-        Serial.println("[SystemTask] Drenando FIFO del sensor BHI260...");
         bhi->updateFifoData();
 
-        // Notificar a la aplicacion de procesamiento
+#ifdef DEBUG
         Serial.println("[SystemTask] Enviando CMD_PROCESS_IMU a AlarmsEventsTask...");
-        msg.event_id = AlarmsEventsTask::CMD_PROCESS_IMU;
+#endif
+        msg.event_id = AlarmsEventsTask::CMD_PROCESS_IMU;        
         msg.emisor_id = TASK_SYSTEM;
         msg.priority_level = PRIORITY_NORMAL;
         AlarmsEventsTask::getInstance().sendMsg(&msg);

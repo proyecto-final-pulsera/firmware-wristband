@@ -1,5 +1,8 @@
 #pragma once
 
+// Activar para habilitar los mensajes por Serial (Debug)
+#define DEBUG
+
 // Frecuencia de muestreo del IMU (en Hz)
 #ifndef FREQ_IMU
 #define FREQ_IMU 50

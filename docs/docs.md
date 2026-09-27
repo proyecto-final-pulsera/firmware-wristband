@@ -139,3 +139,38 @@ Para coordinar el sistema de tiempo real (Mbed OS), se implementÃ³ un sistema de
 * **Vocabulario Aislado:** Para prevenir que una tarea envÃ­e un comando equivocado (Namespace Pollution), cada tarea define sus propios IDs de mensajes en un `enum` interno (`protected`).
 * **Prueba de Concurrencia Exitosa:** Para validar el diseÃ±o del Sprint, se realizÃ³ una prueba inyectando un evento `CMD_TEST` masivo desde la tarea orquestadora (`SystemTask`) hacia las tareas de Comunicaciones, Alarma y Notificaciones de forma simultÃ¡nea. Las tareas hijas recibieron el comando y ejecutaron una respuesta directa ("RESPUESTA DESDE...") al buzÃ³n del orquestador.
 * **Control de ColisiÃ³n (Mutex):** Como Mbed/Arduino OS no garantiza Thread-Safety nativo en las llamadas a `Serial.print()`, se comprobÃ³ empÃ­ricamente que la concurrencia generaba solapamiento de caracteres. Esto se mitigÃ³ validando el uso de `rtos::Mutex` durante la prueba de ping-pong, demostrando que el RTOS administra los bloqueos y prioridades de los hilos correctamente, abriendo la puerta al desarrollo seguro del resto de las lÃ³gicas.
+
+---
+
+## 9. Tarea de Procesamiento de Caídas (AlarmsEventsTask)
+
+### 9.1 Refactorización a Procesamiento Bajo Demanda (On-Demand)
+Se rediseñó el bucle principal (un) de la tarea para procesar los datos únicamente bajo demanda y no de forma continua:
+- **CMD_PROCESS_IMU:** Al recibir este mensaje, la tarea extrae el segmento de datos actual del buffer y lo procesa en ese mismo instante. Luego vuelve al estado de bloqueo pasivo esperando el siguiente comando.
+- La tarea permanece suspendida (timeout osWaitForever) la mayor parte del tiempo, lo cual asegura el ahorro de batería hasta que una interrupción o el SystemTask solicite un procesamiento.
+
+### 9.2 Procesamiento Matemático Optimizado
+- Se integró la función pprox_2d_improved y se implementó suma_pitagorica para calcular la magnitud del vector de aceleración 3D en base a valores absolutos. 
+- Referencia del algoritmo: [Alpha max plus beta min algorithm](https://en.wikipedia.org/wiki/Alpha_max_plus_beta_min_algorithm)
+- Esta aproximación evita el uso de operaciones costosas (como la multiplicación y la raíz cuadrada) en el microcontrolador.
+- **Rendimiento medido:** El tiempo de procesamiento para un buffer de 6 segundos sin reutilizar muestras previas (es decir, recalculando absolutamente todo el buffer) es de **2700 us** con la optimización de valor módulo. En contraposición, si se utiliza la expresión real (raíz cuadrada de la sumatoria de los cuadrados), el tiempo asciende a **50000 us**. Finalmente, al precalcular el arreglo de módulos antes de recorrer la ventana deslizante (evitando calcular múltiples veces la misma muestra), el tiempo se reduce drásticamente a **800 us**.
+
+### 9.3 Extracción de la "Ventana de Impacto"
+- Se definió que el buffer de la IMU (IMU_FIFO_SIZE = 800 muestras) estará, en teoría, siempre lleno durante la ejecución continua.
+- Se lee un segmento de 6 segundos (IMPACT_WINDOW_SIZE = 300 muestras) ubicado exactamente en el **medio** del histórico del buffer, extrayéndolo con un índice precalculado por el compilador: START_IMPACT_WINDOW_INDEX = (IMU_FIFO_SIZE / 2) - (IMPACT_WINDOW_SIZE / 2).
+
+### 9.4 Detección por "Ventana Deslizante" (Sliding Window)
+- Se barre la ventana de impacto (300 muestras) utilizando una sub-ventana deslizante de tamaño 8 (SLIDING_WINDOW_SIZE = 8).
+- Se utiliza un desplazamiento de bits (>> 3) en lugar de una división matemática para promediar la magnitud de la sub-ventana de forma extremadamente rápida.
+- Si el promedio baja del THRESHOLD_FREE_FALL, se levanta una bandera.
+- Si supera el THRESHOLD_IMPACT, se levanta otra bandera.
+- Si ambas banderas se detectan en la misma ventana de impacto de 6 segundos, se cumple la CONDICION DE CAIDA y se interrumpe la búsqueda.
+
+### 9.5 Validación Inicial "Wake Up" y Procesamiento Pre-Fall
+- Se implementó un comando especial CMD_PROCESS_IMU_WAKEUP (enviado por el SystemTask cuando detecta que el buffer se llenó por completo).
+- **Justificación de Diseño:** En la primer llamada luego de un *wake up*, es necesario procesar el *pre-fall* desde el inicio del buffer, por si el evento de caída sucedió inmediatamente una vez se despertó el equipo y no dio tiempo a loguear el *pre-fall* en el flujo habitual.
+- Para ahorrar memoria RAM, se reutiliza el mismo buffer (_imu_window_buffer). Primero se procesan los 6 segundos iniciales, y si no hay alarma, se procesan los 6 segundos centrales, arrastrando las banderas de estado (all_flags) con una compuerta *OR* a través de ambas etapas.
+- Dependiendo de si se evaluó esta condición de *Wake Up*, el mensaje final de alarma (a través de CMD_TX_ALARM) adjuntará el flag PRE_FALL_PROCESSED.
+- **Rendimiento:** Al procesar dos ventanas secuenciales en el peor de los casos (cuando no se detecta alarma tempranamente), esta función específica demora el doble de tiempo (aprox. **1700 us** frente a los 800 us regulares).
+- **Limitación:** Por la implementación actual de reutilización del mismo buffer, SOLO soporta tiempos de pre_fall menores al tiempo de la ventana de procesamiento (menos 1 segundo de margen), es decir < WINDOW_PROCESAMIENTO - 1Seg.
+
