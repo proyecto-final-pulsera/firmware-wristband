@@ -5,6 +5,7 @@
 #include "utils/message_queue.h"
 #include "repositories/imu_repository.h"
 #include "repositories/pressure_repository.h"
+#include "tasks/alarms_events_task.h"
 
 // Struct de métricas como template para el futuro
 struct MetricsData {
@@ -14,7 +15,7 @@ struct MetricsData {
 
 class CommLinkTask {
     friend class SystemTask;
-
+    friend class AlarmsEventsTask;
 private:
     CommLinkTask() {}
     ~CommLinkTask() {}

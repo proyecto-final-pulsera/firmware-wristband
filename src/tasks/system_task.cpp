@@ -3,6 +3,7 @@
 #include "tasks/comm_link_task.h"
 #include "drivers/bhi260_driver.h"
 #include "repositories/event_repository.h"
+#include "tasks/alarms_events_task.h"
 
 void SystemTask::init() {
     // Inicializar hardware, configuraciones previas al inicio, etc.
@@ -34,84 +35,23 @@ void SystemTask::run() {
     // }
     // */
 
-    // --- MANUAL TEST ROUTINE FOR COMM LINK TASK ---
     BHI260Driver* bhi = BHI260Driver::getInstance();
-    MotionRepository* motionEvent = MotionRepository::getInstance();
-    NoMotionRepository* noMotionEvent = NoMotionRepository::getInstance();
     
-    TestState currentState = WAIT_MOTION;
-    uint32_t last_metrics = millis();
-    Serial.println("Tarea Sys iniciada");
+    Serial.println("Tarea Sys iniciada - MODO TEST ALARMS EVENTS");
     while (true) {
+        // Dormir la aplicacion por 3 segundos
+        rtos::ThisThread::sleep_for(std::chrono::milliseconds(3000));
 
-        // Drenar FIFO para actualizar repositorios (polling continuo sin IRQ bloqueante)
+        // Pedir los datos de la FIFO del sensor
+        Serial.println("[SystemTask] Drenando FIFO del sensor BHI260...");
         bhi->updateFifoData();
 
-        if (currentState == WAIT_MOTION) {
-
-            if (motionEvent->hasEventOccurred()) {
-                Serial.println("Se detecto movimiento");
-                motionEvent->clearEventFlag();
-                noMotionEvent->clearEventFlag();
-                noMotionEvent->begin(1.0f, 0);
-                currentState = WAIT_STILL;
-            }
-        } else if (currentState == WAIT_STILL) {
-            if (noMotionEvent->hasEventOccurred()) {
-                Serial.println("Se detecto no movimiento");
-                noMotionEvent->clearEventFlag();
-
-                // Detectada la caída (cese de movimiento), enviamos los buffers
-                
-                msg.event_id = CommLinkTask::CMD_TX_FALL_SENSORS;
-                msg.emisor_id = TASK_SYSTEM;
-                CommLinkTask::getInstance().sendMsg(&msg);
-
-                // Enviamos una alarma simulada de caída (ID genérico 0x12 en flags)
-                
-                msg.event_id = CommLinkTask::CMD_TX_ALARM;
-                msg.emisor_id = TASK_SYSTEM;
-                msg.flags = 0x12; 
-                CommLinkTask::getInstance().sendMsg(&msg);
-
-                // Volver a esperar movimiento
-                motionEvent->clearEventFlag();
-                motionEvent->begin(1.0f, 0);
-                currentState = WAIT_MOTION;
-            }
-        }
-
-        // Cada 5 segundos disparamos el envío de métricas de paso
-        if (millis() - last_metrics >= 5000) {
-            Serial.println("Envio metricas");
-            msg.event_id = CommLinkTask::CMD_TX_METRICS;
-            msg.emisor_id = TASK_SYSTEM;
-            CommLinkTask::getInstance().sendMsg(&msg);
-            last_metrics = millis();
-        }
-
-        // Pequeño retardo para no colgar el scheduler
-        rtos::ThisThread::sleep_for(std::chrono::milliseconds(2000));
+        // Notificar a la aplicacion de procesamiento
+        Serial.println("[SystemTask] Enviando CMD_PROCESS_IMU a AlarmsEventsTask...");
+        msg.event_id = AlarmsEventsTask::CMD_PROCESS_IMU;
+        msg.emisor_id = TASK_SYSTEM;
+        msg.priority_level = PRIORITY_NORMAL;
+        AlarmsEventsTask::getInstance().sendMsg(&msg);
     }
-    // ----------------------------------------------
 }
 
-
-void printHeapStats() {
-    mbed_stats_heap_t heap_stats;
-    mbed_stats_heap_get(&heap_stats);
-    
-    Serial.println("=== ESTADÍSTICAS DEL HEAP ===");
-    Serial.print("Tamaño total reservado para Heap: ");
-    Serial.print(heap_stats.reserved_size);
-    Serial.println(" bytes");
-    
-    Serial.print("Uso actual: ");
-    Serial.print(heap_stats.current_size);
-    Serial.println(" bytes");
-    
-    Serial.print("Pico máximo histórico usado (Max): ");
-    Serial.print(heap_stats.max_size);
-    Serial.println(" bytes");
-    Serial.println("=============================");
-}

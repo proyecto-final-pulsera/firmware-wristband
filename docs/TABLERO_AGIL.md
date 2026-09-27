@@ -10,10 +10,23 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
   - **Criterio de aceptación:** La clase `InterfaceDriver` queda libre de acoplamientos de semáforos e ISRs ocultas, cediendo el control del polling/MDE a las tareas del RTOS.
 
 
-- [ ] **Tarea 6: Tarea de alarma y eventos**
-  - **Tiempo estimado:** 5 horas
-  - **Descripción:** Atender eventos de caída y botón de pánico. Controlar transiciones de estado según el IMU o el botón.
-  - **Criterio de aceptación:** Recibir por puerto serie un print de los eventos generados, verificando que el RTOS permite ejecutar esto con una tarea de menor prioridad corriendo simultáneamente (sin bloqueos).
+- [ ] **Tarea 6: Tarea de Procesamiento de Caídas (`AlarmsEventsTask`)**
+  - **Descripción:** Tarea dedicada exclusivamente a procesar matemáticamente si ocurrió o no una caída utilizando los datos inerciales recolectados.
+  - **Subtareas:**
+    - [ ] **6.1 - Funciones matemáticas de detección:** Implementar algoritmos para detectar caída libre y el impacto posterior, permitiendo configurar un threshold (umbral) para cada uno.
+    - [ ] **6.2 - Flujo de Buffers y Ventana de Superposición:** Gestionar el flujo de datos para aplicar el procesamiento matemático solo sobre la ventana de datos indicada (solapamiento o "sliding window").
+    - [ ] **6.3 - Detección en Arranque ("Recién Despertado"):** Manejar el caso borde donde el micro recién sale de reposo y necesita procesar el buffer histórico completo en lugar de solo la última ventana.
+    - [ ] **6.4 - Validación y calibración:** Validar los algoritmos y determinar empíricamente valores aceptables de threshold tanto para caída libre como para impacto.
+  - **Criterio de aceptación:** Capacidad de procesar los buffers, detectar un impacto seguido de caída libre, e informar exitosamente a los demás módulos del sistema que se detectó una caída.
+
+- [ ] **Tarea 7: Tarea Coordinadora del Sistema (`SystemTask`)**
+  - **Descripción:** Tarea central que gestiona las interrupciones (IRQs), decide el modo de energía del dispositivo y coordina a las demás tareas.
+  - **Subtareas:**
+    - [ ] **7.1 - Definición arquitectónica de Lectura de FIFO:** Definir e implementar si el llamado a `bhi->updateFifoData()` se debe hacer en esta tarea, en la de procesamiento, o si requiere una tarea dedicada.
+    - [ ] **7.2 - Ruteo de Interrupciones a Mailbox:** Instanciar todas las ISR (sensores, botones) y rutearlas para que despierten e informen a esta tarea a través de su mailbox.
+    - [ ] **7.3 - Lógica de Control de Energía:** Procesar los eventos recibidos para decidir si el sistema debe "Mandar a dormir" (Sleep/Stationary) o "Procesar datos" (Wake up/Motion).
+    - [ ] **7.4 - Orquestación y hooks de notificación:** Manejar la comunicación con las otras tareas. Incluir hooks/comentarios para las futuras notificaciones de usuario (LEDs/Vibrador) que aún no existen.
+  - **Criterio de aceptación:** La tarea interactúa con todas las IRQs, corre la Máquina de Estados (MDE) de los pulsadores, garantiza su tiempo de ejecución para procesar eventos, y logra notificar vía `CommLinkTask` los estados de "Despertado", "Dormido", y "Pulsador presionado".
 
 ## Sprints Previos (Tareas Completadas)
 
