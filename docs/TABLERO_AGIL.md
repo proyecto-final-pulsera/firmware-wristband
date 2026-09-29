@@ -10,14 +10,14 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
   - **Criterio de aceptación:** La clase `InterfaceDriver` queda libre de acoplamientos de semáforos e ISRs ocultas, cediendo el control del polling/MDE a las tareas del RTOS.
 
 
-- [ ] **Tarea 6: Tarea de Procesamiento de Caídas (`AlarmsEventsTask`)**
+- [X] **Tarea 6: Tarea de Procesamiento de Caídas (`AlarmsEventsTask`)**
   - **Descripción:** Tarea dedicada exclusivamente a procesar matemáticamente si ocurrió o no una caída utilizando los datos inerciales recolectados.
   - **Subtareas:**
     - [X] **6.1 - Funciones matemáticas de detección:** Implementar algoritmos para detectar caída libre y el impacto posterior, permitiendo configurar un threshold (umbral) para cada uno.
     - [X] **6.2 - Flujo de Buffers y Ventana de Superposición:** Gestionar el flujo de datos para aplicar el procesamiento matemático solo sobre la ventana de datos indicada (solapamiento o "sliding window").
-    - [ ] **6.3 - Detección en Arranque ("Recién Despertado"):** Manejar el caso borde donde el micro recién sale de reposo y necesita procesar el buffer histórico completo en lugar de solo la última ventana.
-    - [ ] **6.4 - Validación y calibración:** Validar los algoritmos y determinar empíricamente valores aceptables de threshold tanto para caída libre como para impacto.
-    - [ ] **6.5 - Optimización de Procesamiento (TODO):** Reducir el procesamiento para evitar recalcular datos continuos que ya fueron procesados en la ventana anterior (gestionar solapamiento de forma eficiente).
+    - [X] **6.3 - Detección en Arranque ("Recién Despertado"):** Manejar el caso borde donde el micro recién sale de reposo y necesita procesar el buffer histórico completo en lugar de solo la última ventana.
+    - [X] **6.4 - Validación y calibración:** Validar los algoritmos y determinar empíricamente valores aceptables de threshold tanto para caída libre como para impacto.
+    - [X] **6.5 - Optimización de Procesamiento (TODO):** Reducir el procesamiento para evitar recalcular datos continuos que ya fueron procesados en la ventana anterior (gestionar solapamiento de forma eficiente).
   - **Criterio de aceptación:** Capacidad de procesar los buffers, detectar un impacto seguido de caída libre, e informar exitosamente a los demás módulos del sistema que se detectó una caída.
 
 - [ ] **Tarea 7: Tarea Coordinadora del Sistema (`SystemTask`)**

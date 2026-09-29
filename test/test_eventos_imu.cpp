@@ -1,11 +1,11 @@
-#include "test_eventos_imu.h"
+﻿#include "test_eventos_imu.h"
 #include "drivers/bhi260_driver.h"
-#include "drivers/interface_driver.h"
+//#include "drivers/led_interface.h"
 #include "SerialMenuDebug.h"
 #include "rtos.h"
 
 static BHI260Driver* imu = nullptr;
-static InterfaceDriver* interfaceDriver = nullptr;
+//static LedInterface* ledDriver = nullptr;
 static SerialMenuDebug menuDebug;
 
 static void enableTestSensor(uint8_t id) {
@@ -32,10 +32,10 @@ void runTestEventosImu() {
     imu = BHI260Driver::getInstance();
     
     // IMPORTANTE: Crear la instancia para evitar nullptr
-    interfaceDriver = InterfaceDriver::getInstance();
+    //ledDriver = LedInterface::getInstance();
     
-    // Test no arrancó todavía
-    interfaceDriver->setLedWarn();
+    // Test no arrancÃ³ todavÃ­a
+    //ledDriver->setLedWarn();
     
     Serial.println("\n================================================");
     Serial.println("--- INICIANDO TEST DE EVENTOS IMU (10 SEG) ---");
@@ -43,7 +43,7 @@ void runTestEventosImu() {
     delay(3000);
     
     // Se esta ejecutando el test
-    interfaceDriver->setLedNotif();
+    //ledDriver->setLedNotif();
     menuDebug.clear();
     
     uint8_t targetSensors[] = {
@@ -98,12 +98,12 @@ void runTestEventosImu() {
     }
     
     // El test finalizo
-    interfaceDriver->setLedAlarm();
+    //ledDriver->setLedAlarm();
     
     Serial.println("--- FIN DE LA SECUENCIA ---");
     Serial.println("Escriba 'EVENTOS' para ver los resultados.");
     
-    // Loop infinito esperando el menú serie
+    // Loop infinito esperando el menÃº serie
     while (true) {
         menuDebug.processSerial();
         delay(100);

@@ -33,6 +33,8 @@ public:
         CMD_PROCESS_ALARM,
         CMD_UPDATE_STATE,
         EVT_BATTERY_LOW,
+        CMD_EVALUATE_PANIC_BUTTON,
+        CMD_EVALUATE_NOTIF_BUTTON,
     };
 
 public:
