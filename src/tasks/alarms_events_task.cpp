@@ -62,12 +62,20 @@ void AlarmsEventsTask::run() {
         // Esperamos por siempre hasta que llegue un comando (on-demand)
         if (_alarms_events_task_queue.receive(&msg, osWaitForever)) {
             // Procesar el mensaje recibido
+        
+            unsigned long t_start = micros();
+
             switch (msg.event_id) {
                 case CMD_PROCESS_IMU:
                     processImuWindow(false);
+                    DEBUG_PRINT("[AlarmsEventsTask] Tiempo process (us): "); DEBUG_PRINTLN(micros() - t_start);
+                    
                     break;
                 case CMD_PROCESS_IMU_WAKEUP:
+                    
                     processImuWindow(true);
+                    DEBUG_PRINT("[AlarmsEventsTask] Tiempo process Wakeup (us): "); DEBUG_PRINTLN(micros() - t_start);
+                    
                     break;
                 case CMD_STOP_PROCESS:
                     // Actualmente no tiene efecto en procesamiento on-demand
@@ -76,15 +84,11 @@ void AlarmsEventsTask::run() {
                 {
                     // Actualizar datos del sensor
                     BHI260Driver::getInstance()->updateFifoData();
+                    DEBUG_PRINT("[AlarmsEventsTask] Tiempo update sensor (us): "); DEBUG_PRINTLN(micros() - t_start);
                     
                     // Validar emisor y responder
                     if (msg.emisor_id == TASK_SYSTEM) {
-                        AppMessage replyMsg;
-                        replyMsg.event_id = SystemTask::BHI_UPDATED;
-                        replyMsg.emisor_id = TASK_ALARMS_EVENTS;
-                        // Opcionalmente se pueden poner a 0 otros campos
-                        replyMsg.priority_level = PRIORITY_NORMAL;
-                        SystemTask::getInstance().sendMsg(&replyMsg);
+                        notifyTask<SystemTask>(SystemTask::BHI_UPDATED);
                     }
                     // Si hay otras tareas que puedan emitir este mensaje, 
                     // se agregarian sus validaciones aqui.
@@ -144,8 +148,7 @@ DEBUG_PRINT("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: "); DEBUG_PRINTLN(p
 }
 
 void AlarmsEventsTask::processImuWindow(bool process_preFall) {
-unsigned long t_start = micros();
-    
+
     ImuRepository* imu = ImuRepository::getInstance();
     
     if (imu->getAvailableCount() < IMU_FIFO_SIZE) {
@@ -173,10 +176,7 @@ unsigned long t_start = micros();
     if (fall_flags != 0 && fall_flags == FLAG_FALL_DETECTED) {
 DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
         
-        AppMessage caidaMsg;
-        caidaMsg.event_id = CommLinkTask::CMD_TX_FALL_SENSORS;
-        caidaMsg.emisor_id = TASK_ALARMS_EVENTS;
-        CommLinkTask::getInstance().sendMsg(&caidaMsg);
+        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
 
         AppMessage alarmMsg;
         alarmMsg.event_id = CommLinkTask::CMD_TX_ALARM;
@@ -185,6 +185,4 @@ DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
         alarmMsg.flags = process_preFall ? PRE_FALL_PROCESSED : 0;
         CommLinkTask::getInstance().sendMsg(&alarmMsg);
     }
-
-DEBUG_PRINT("[AlarmsEventsTask] Tiempo de procesamiento (us): "); DEBUG_PRINTLN(micros() - t_start);
 }

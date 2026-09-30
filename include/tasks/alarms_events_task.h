@@ -33,6 +33,19 @@ protected:
     // Garantiza que nadie salte el esquema arquitectonico por error.
     bool sendMsg(AppMessage* msg);
 
+    template <typename TargetTask>
+    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_ALARMS_EVENTS, MsgPriority priority = PRIORITY_NORMAL) {
+        AppMessage msg;
+        msg.event_id = event_id;
+        msg.emisor_id = emisor_id;
+        msg.priority_level = priority;
+        msg.flags = 0;
+        msg.payload_ptr = nullptr;
+        msg.payload_len = 0;
+        msg.timestamp = rtos::Kernel::get_ms_count();
+        TargetTask::getInstance().sendMsg(&msg);
+    }
+
 protected:
     // Comandos y eventos exclusivos de esta tarea
     enum EventId : uint8_t {

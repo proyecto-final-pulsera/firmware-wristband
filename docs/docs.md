@@ -83,6 +83,11 @@ Para evitar hardcodear nÃºmeros mÃ¡gicos en el tamaÃ±o de los arreglos estÃ¡tico
 
 ---
 
+### 5.6 Tiempos de Descarga del Buffer (I2C)
+Se perfilaron los tiempos de transferencia de la FIFO de hardware (a través de I2C) hacia los buffers de software del microcontrolador al ejecutar hi->updateFifoData().
+* **Escenario de latencia estándar:** Para descargar los datos acumulados durante una ventana de **3 segundos**, la transacción y copia a través del bus demora aproximadamente **10 ms**.
+* **Escenario post Wake-Up (Buffer Completo):** Cuando el microcontrolador despierta luego de un tiempo prolongado y la FIFO de hardware está cerca de su máxima capacidad, el tiempo de lectura y descarga total asciende a aproximadamente **62 ms**.
+
 ## 6. BaterÃ­a de Pruebas (Testing Suite)
 
 Durante el desarrollo se crearon distintos entornos aislados de prueba (en la carpeta `/test/`) para validar funciones especÃ­ficas del hardware y del software antes de integrarlas al `main`. A continuaciÃ³n se detalla quÃ© hace y quÃ© demuestra cada test:
@@ -145,7 +150,8 @@ Para coordinar el sistema de tiempo real (Mbed OS), se implementÃ³ un sistema de
 ## 9. Tarea de Procesamiento de Caídas (AlarmsEventsTask)
 
 ### 9.1 Refactorización a Procesamiento Bajo Demanda (On-Demand)
-Se rediseñó el bucle principal (un) de la tarea para procesar los datos únicamente bajo demanda y no de forma continua:
+Se rediseñó el bucle principal (
+un) de la tarea para procesar los datos únicamente bajo demanda y no de forma continua:
 - **CMD_PROCESS_IMU:** Al recibir este mensaje, la tarea extrae el segmento de datos actual del buffer y lo procesa en ese mismo instante. Luego vuelve al estado de bloqueo pasivo esperando el siguiente comando.
 - La tarea permanece suspendida (timeout osWaitForever) la mayor parte del tiempo, lo cual asegura el ahorro de batería hasta que una interrupción o el SystemTask solicite un procesamiento.
 

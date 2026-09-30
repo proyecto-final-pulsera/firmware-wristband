@@ -11,6 +11,7 @@ MSG_ALARM = 0x04
 MSG_METRICS = 0x05
 MSG_KEEP_ALIVE = 0x06
 MSG_WARNING = 0x08
+MSG_PANIC_BTN_PRESS = 0x09
 
 # Tabla de búsqueda para CRC-8 (Polinomio 0x07)
 CRC8_TABLE = [
@@ -200,6 +201,11 @@ def main():
                 elif msg_type == MSG_KEEP_ALIVE:
                     # Imprimimos de manera discreta para no ensuciar mucho la consola
                     print(f"[SYS] Keep Alive recibido. (Dispositivo vivo)")
+                    
+                elif msg_type == MSG_PANIC_BTN_PRESS:
+                    print(f"\n================================================")
+                    print(f" [S.O.S] BOTON DE AYUDA / PANICO PRESIONADO!")
+                    print(f"================================================")
                     
             else:
                 # Imprimir el Debug ASCII.

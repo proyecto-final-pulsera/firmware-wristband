@@ -141,13 +141,14 @@ void SystemTask::updateBhiMde() {
 
         case BHI_MDE_DISCONNECTING_WAIT_UPDATE:
             if (_flag_bhi_updated) {
+                // Validar siempre si hubo caida durante la desconexion
+                notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
+                
                 if (MotionRepository::getInstance()->hasEventOccurred()) {
                     DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado! Abortando desconexion -> MONITORING_FALL");
                     MotionRepository::getInstance()->clearEventFlag();
                     NoMotionRepository::getInstance()->clearEventFlag();
                     NoMotionRepository::getInstance()->begin(1.0f, 0);
-                    // Volver a procesar y monitorear
-                    notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
                     
                     _bhi_mde_state = BHI_MDE_MONITORING_FALL;
                 } else {
@@ -178,6 +179,7 @@ void SystemTask::updateButtonsMde() {
 
         if (panicBtn->getPressed()) {
             DEBUG_PRINTLN("[SystemTask] PANIC BUTTON - Flanco Detectado!");
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_PANIC_BTN_PRESS);
         }
 
         if (panicBtn->isIdle()) {

@@ -16,7 +16,8 @@ enum MsgType : uint8_t {
     MSG_METRICS         = 0x05, // ENVIAR_METRICAS
     MSG_KEEP_ALIVE      = 0x06, // ENVIAR_KEEP_ALIVE
     MSG_FALL_SENSORS    = 0x07, // Enviar buffers de IMU, Presion y valor de Temperatura juntos
-    MSG_WARNING         = 0x08  // Advertencias menores
+    MSG_WARNING         = 0x08, // Advertencias menores
+    MSG_PANIC_BTN_PRESS = 0x09  // Boton de panico presionado
 };
 
 // =============================================================================

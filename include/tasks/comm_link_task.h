@@ -36,6 +36,19 @@ private:
 protected:
     bool sendMsg(AppMessage* msg);
 
+    template <typename TargetTask>
+    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_COMM_LINK, MsgPriority priority = PRIORITY_NORMAL) {
+        AppMessage msg;
+        msg.event_id = event_id;
+        msg.emisor_id = emisor_id;
+        msg.priority_level = priority;
+        msg.flags = 0;
+        msg.payload_ptr = nullptr;
+        msg.payload_len = 0;
+        msg.timestamp = rtos::Kernel::get_ms_count();
+        TargetTask::getInstance().sendMsg(&msg);
+    }
+
 public:
     // Comandos y eventos exclusivos de esta tarea (que mapean a lo que enviaremos)
     enum EventId : uint8_t {
@@ -47,7 +60,8 @@ public:
         CMD_TX_KEEP_ALIVE      = 0x06,
         CMD_TX_FALL_SENSORS    = 0x07,
         CMD_TX_WARNING         = 0x08,
-        EVT_RX_PACKET          = 0x09
+        CMD_TX_PANIC_BTN_PRESS = 0x09,
+        EVT_RX_PACKET          = 0x0A
     };
 
     static CommLinkTask& getInstance() {
