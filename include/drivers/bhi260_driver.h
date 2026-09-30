@@ -81,4 +81,5 @@ private:
     
     uint32_t _interruptPin;
     void (*_isr_handler)(void);
+    class mbed::InterruptIn* _mbedIrq;
 };

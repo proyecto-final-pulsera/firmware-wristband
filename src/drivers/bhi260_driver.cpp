@@ -18,10 +18,14 @@ BHI260Driver::BHI260Driver() {
     // We will initialize it here or leave it for later as requested.
     _interruptPin = INT_BHI260; // Use Nicla's default BHI260 interrupt pin
     _isr_handler = nullptr;
+    _mbedIrq = nullptr;
 }
 
 BHI260Driver::~BHI260Driver() {
     // Destructor implementation
+    if (_mbedIrq != nullptr) {
+        delete _mbedIrq;
+    }
 }
 
 extern BoschSensortec sensortec;
@@ -58,7 +62,7 @@ void BHI260Driver::disableNonWakeupFIFO() {
     uint8_t stat;
     // Leer el estado actual del registro
     bhy2_get_host_intf_ctrl(&stat, &sensortec._bhy2);
-    // Setear el bit de AP Suspended (bloquea la FIFO Non-Wakeup del pin físico)
+    // Setear el bit de AP Suspended (bloquea la FIFO Non-Wakeup del pin fisico)
     stat |= BHY2_HIF_CTRL_AP_SUSPENDED;
     bhy2_set_host_intf_ctrl(stat, &sensortec._bhy2);
 }
@@ -106,20 +110,23 @@ uint32_t BHI260Driver::getInterruptPin() const {
 void BHI260Driver::configureInterrupt(void (*isr_handler)(void)) {
     if (_interruptPin != 0xFFFFFFFF) {
         _isr_handler = isr_handler;
-        pinMode(_interruptPin, INPUT);
-        attachInterrupt(digitalPinToInterrupt(_interruptPin), _isr_handler, RISING);
+        // La instanciacion e interrupcion se haran en enableInterrupt
     }
 }
 
 void BHI260Driver::enableInterrupt() {
     if (_interruptPin != 0xFFFFFFFF && _isr_handler != nullptr) {
-        attachInterrupt(digitalPinToInterrupt(_interruptPin), _isr_handler, RISING);
+        if (_mbedIrq == nullptr) {
+            _mbedIrq = new mbed::InterruptIn(digitalPinToPinName(_interruptPin));
+            _mbedIrq->mode(PullNone); // Asumimos circuito configurado correctamente
+        }
+        _mbedIrq->rise(_isr_handler);
     }
 }
 
 void BHI260Driver::disableInterrupt() {
-    if (_interruptPin != 0xFFFFFFFF) {
-        detachInterrupt(digitalPinToInterrupt(_interruptPin));
+    if (_mbedIrq != nullptr) {
+        _mbedIrq->rise(nullptr);
     }
 }
 

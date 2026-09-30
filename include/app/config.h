@@ -31,3 +31,6 @@
 
 // Valor umbral minimo a partir del cual se considera que hubo un impacto.
 #define THRESHOLD_IMPACT 7000     // Valor provisorio
+
+// numero de veces que se procesa el buffer recibido de IMU luego de recibir un evento de "No caida".
+#define NUM_PROCESS_POST_NOMOTION 3

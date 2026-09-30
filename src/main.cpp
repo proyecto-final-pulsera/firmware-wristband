@@ -20,21 +20,21 @@ void setup() {
     Serial.begin(115200);
     // Esperar a que se estabilice el puerto (opcional)
     delay(2000);
-    // BatteryDriver* battery = BatteryDriver::getInstance();
-    // battery->init();
     
     // 1. Inicializar toda la arquitectura de la app (Drivers, Tareas, ISRs)
     App::init();
-
 
     // 2. Iniciar el hilo del PMIC
     batteryThread.start(batteryPingTask);
 }
 
+extern volatile bool g_bhi_irq_fired;
 
 void loop() {
-    // El RTOS ya tomo el control mediante los threads.
-    // Dejamos el loop vacio cediendo el tiempo al Scheduler.
+    if (g_bhi_irq_fired) {
+        Serial.println(">>> IRQ DE HARDWARE DISPARADA (BHI260) <<<");
+        g_bhi_irq_fired = false;
+    }
     
-    rtos::ThisThread::sleep_for(std::chrono::milliseconds(100));
+    rtos::ThisThread::sleep_for(std::chrono::milliseconds(50));
 }

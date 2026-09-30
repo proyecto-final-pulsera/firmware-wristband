@@ -8,9 +8,8 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
 
   - **Descripción:** El driver de pulsador y manejo de interrupciones actual no es claro (`InterfaceDriver`). Se debe instanciar la ISR fuera de la clase (en `app.cpp` junto a las demás) y hacer que la Tarea (`SystemTask` o `AlarmsEventsTask`) corra la MDE correspondiente.
   - **Criterio de aceptación:** La clase `InterfaceDriver` queda libre de acoplamientos de semáforos e ISRs ocultas, cediendo el control del polling/MDE a las tareas del RTOS.
-
-
 - [X] **Tarea 6: Tarea de Procesamiento de Caídas (`AlarmsEventsTask`)**
+
   - **Descripción:** Tarea dedicada exclusivamente a procesar matemáticamente si ocurrió o no una caída utilizando los datos inerciales recolectados.
   - **Subtareas:**
     - [X] **6.1 - Funciones matemáticas de detección:** Implementar algoritmos para detectar caída libre y el impacto posterior, permitiendo configurar un threshold (umbral) para cada uno.
@@ -19,8 +18,8 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
     - [X] **6.4 - Validación y calibración:** Validar los algoritmos y determinar empíricamente valores aceptables de threshold tanto para caída libre como para impacto.
     - [X] **6.5 - Optimización de Procesamiento (TODO):** Reducir el procesamiento para evitar recalcular datos continuos que ya fueron procesados en la ventana anterior (gestionar solapamiento de forma eficiente).
   - **Criterio de aceptación:** Capacidad de procesar los buffers, detectar un impacto seguido de caída libre, e informar exitosamente a los demás módulos del sistema que se detectó una caída.
-
 - [ ] **Tarea 7: Tarea Coordinadora del Sistema (`SystemTask`)**
+
   - **Descripción:** Tarea central que gestiona las interrupciones (IRQs), decide el modo de energía del dispositivo y coordina a las demás tareas.
   - **Subtareas:**
     - [ ] **7.1 - Definición arquitectónica de Lectura de FIFO:** Definir e implementar si el llamado a `bhi->updateFifoData()` se debe hacer en esta tarea, en la de procesamiento, o si requiere una tarea dedicada.
@@ -112,13 +111,9 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 * **Descripción:** Generar caídas verdaderas y eventos cotidianos capturando los buffers.
 * **Criterio de aceptación:** Dataset preliminar capturado mediante el script de Python.
 
-### 9. Generar el pipeline para guardar datos en microcontrolador
+### 9. 
 
-* **9A. Wake-up y recolección (4 horas):** Implementar la lógica para despertar al micro frente al evento, acceder al buffer y extraer los datos.
-* **9B. Procesamiento y detección (4 horas):** Procesar un buffer (puede ser hardcodeado de una caída real) y validar que la lógica dispare la detección de la caída.
-* **Criterio de aceptación:** El micro despierta, procesa datos y levanta el evento de caída exitosamente.
-
-### 10. Detección de dispositivo puesto o no
+	### 10. Detección de dispositivo puesto o no
 
 * **Tiempo estimado:** 4 horas
 * **Descripción:** Comprobar si la pulsera está puesta utilizando los algoritmos y features ya integrados internamente en la IMU.

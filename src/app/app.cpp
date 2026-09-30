@@ -26,15 +26,18 @@
 // RUTINAS DE SERVICIO DE INTERRUPCION (ISRs)
 // ============================================================================
 
+volatile bool g_bhi_irq_fired = false;
 void isr_bhi260() {
-
+    g_bhi_irq_fired = true;
+    AppMessage msg;
+    msg.event_id = SystemTask::EVT_BHI_INTERRUPT;
+    msg.emisor_id = TASK_ISR_ROUTINE;
+    SystemTask::getInstance().sendMsg(&msg);
 }
 
 void isr_serial_rx() {
 
 }
-
-// volatile bool panic_irq_fired = false;
 
 void isr_panic_button() {
     // panic_irq_fired = true;
@@ -49,7 +52,7 @@ void isr_panic_button() {
 }
 
 void isr_notif_button() {
-    // // Si la MDE estÃ¡ en reposo, enmascaramos por software y avisamos al sistema.
+    // // Si la MDE esta en reposo, enmascaramos por software y avisamos al sistema.
     // if (NotifButton::getInstance()->onInterrupt()) {
     //     AppMessage msg;
     //     msg.event_id = SystemTask::CMD_EVALUATE_NOTIF_BUTTON;
@@ -85,9 +88,9 @@ void App::init() {
     // NotifButton* notifBtn = NotifButton::getInstance();
     // notifBtn->setIrqHandler(isr_notif_button);
 
-    // Vibrador
-    VibratorDriver* vibrator = VibratorDriver::getInstance();
-    vibrator->init();
+    // Vibrador (Desactivado temporalmente a peticion)
+    // VibratorDriver* vibrator = VibratorDriver::getInstance();
+    // vibrator->init();
 
     // Comunicaciones
     SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
@@ -96,7 +99,7 @@ void App::init() {
     // ------------------------------------------------------------------------
     // 1.5 Inicializar Repositorios de Sensores
     // ------------------------------------------------------------------------
-    bhi260->enableNonWakeupFIFO();
+    bhi260->disableNonWakeupFIFO();
     
     ImuRepository::getInstance()->begin((float)FREQ_IMU, 3000); 
     PressureRepository::getInstance()->begin((float)FREQ_PRESSURE, (uint32_t)-1);

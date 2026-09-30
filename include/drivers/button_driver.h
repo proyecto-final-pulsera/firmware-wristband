@@ -51,8 +51,8 @@ protected:
         DEBOUNCE_RELEASE
     };
 
-    ButtonState _mdeState;
-    unsigned long _mdeTimer;
+    volatile ButtonState _mdeState;
+    volatile unsigned long _mdeTimer;
     bool _eventPending;
 };
 

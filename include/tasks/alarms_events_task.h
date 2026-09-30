@@ -40,6 +40,7 @@ protected:
         CMD_PROCESS_IMU_WAKEUP,
         CMD_STOP_PROCESS,
         EVT_PANIC_BUTTON,
+        UPDATE_BUFFER_BHI,
     };
 
 

@@ -2,6 +2,9 @@
 #include "tasks/notif_ui_task.h"
 
 #include "mbed.h"
+#include "drivers/bhi260_driver.h"
+#include "tasks/system_task.h"
+#include "utils/debug.h"
 
 void AlarmsEventsTask::init() {
     // Inicializar hardware, configuraciones previas al inicio, etc.
@@ -69,6 +72,24 @@ void AlarmsEventsTask::run() {
                 case CMD_STOP_PROCESS:
                     // Actualmente no tiene efecto en procesamiento on-demand
                     break;
+                case UPDATE_BUFFER_BHI:
+                {
+                    // Actualizar datos del sensor
+                    BHI260Driver::getInstance()->updateFifoData();
+                    
+                    // Validar emisor y responder
+                    if (msg.emisor_id == TASK_SYSTEM) {
+                        AppMessage replyMsg;
+                        replyMsg.event_id = SystemTask::BHI_UPDATED;
+                        replyMsg.emisor_id = TASK_ALARMS_EVENTS;
+                        // Opcionalmente se pueden poner a 0 otros campos
+                        replyMsg.priority_level = PRIORITY_NORMAL;
+                        SystemTask::getInstance().sendMsg(&replyMsg);
+                    }
+                    // Si hay otras tareas que puedan emitir este mensaje, 
+                    // se agregarian sus validaciones aqui.
+                    break;
+                }
                 default:
                     break;
             }
@@ -103,20 +124,14 @@ uint8_t AlarmsEventsTask::evaluateWindow(DataXYZ* buffer, uint16_t len) {
 
         if (promedio_ventana < THRESHOLD_FREE_FALL) {
             if (!(flags & FLAG_FREE_FALL)) {
-#ifdef DEBUG
-                Serial.print("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: ");
-                Serial.println(promedio_ventana);
-#endif
+DEBUG_PRINT("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
             }
             flags |= FLAG_FREE_FALL;
         }
         
         if (promedio_ventana > THRESHOLD_IMPACT) {
             if (!(flags & FLAG_IMPACT)) {
-#ifdef DEBUG
-                Serial.print("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: ");
-                Serial.println(promedio_ventana);
-#endif
+DEBUG_PRINT("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
             }
             flags |= FLAG_IMPACT;
         }
@@ -129,9 +144,7 @@ uint8_t AlarmsEventsTask::evaluateWindow(DataXYZ* buffer, uint16_t len) {
 }
 
 void AlarmsEventsTask::processImuWindow(bool process_preFall) {
-#ifdef DEBUG
-    unsigned long t_start = micros();
-#endif
+unsigned long t_start = micros();
     
     ImuRepository* imu = ImuRepository::getInstance();
     
@@ -158,9 +171,7 @@ void AlarmsEventsTask::processImuWindow(bool process_preFall) {
     }
 
     if (fall_flags != 0 && fall_flags == FLAG_FALL_DETECTED) {
-#ifdef DEBUG
-        Serial.println("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
-#endif
+DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
         
         AppMessage caidaMsg;
         caidaMsg.event_id = CommLinkTask::CMD_TX_FALL_SENSORS;
@@ -175,9 +186,5 @@ void AlarmsEventsTask::processImuWindow(bool process_preFall) {
         CommLinkTask::getInstance().sendMsg(&alarmMsg);
     }
 
-#ifdef DEBUG
-    unsigned long t_end = micros();
-    Serial.print("[AlarmsEventsTask] Tiempo de procesamiento (us): ");
-    Serial.println(t_end - t_start);
-#endif
+DEBUG_PRINT("[AlarmsEventsTask] Tiempo de procesamiento (us): "); DEBUG_PRINTLN(micros() - t_start);
 }
