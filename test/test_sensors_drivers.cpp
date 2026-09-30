@@ -23,7 +23,7 @@ void runSensorsDriversTest() {
     Serial.println("--- INICIANDO TEST MULTI-SENSOR DRIVERS ---");
     
     BHI260Driver* bhi = BHI260Driver::getInstance();
-
+    bhi->init();
     // 1. Instanciar todos los drivers (Singletons)
     ImuRepository* imuDriver = ImuRepository::getInstance();
     PressureRepository* pressureDriver = PressureRepository::getInstance();

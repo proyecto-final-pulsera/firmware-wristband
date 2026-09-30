@@ -2,6 +2,7 @@
 #include "app/app.h"
 #include "drivers/battery_driver.h"
 #include "rtos.h"
+#include "../test/test_sensors_drivers.h"
 
 // Hilo dedicado a mantener vivo el PMIC
 rtos::Thread batteryThread(osPriorityNormal, 1024);
@@ -25,16 +26,13 @@ void setup() {
     App::init();
 
     // 2. Iniciar el hilo del PMIC
+    // BatteryDriver* battery = BatteryDriver::getInstance();
+    // battery->init();
     batteryThread.start(batteryPingTask);
+    // runSensorsDriversTest();
 }
 
-extern volatile bool g_bhi_irq_fired;
-
 void loop() {
-    if (g_bhi_irq_fired) {
-        Serial.println(">>> IRQ DE HARDWARE DISPARADA (BHI260) <<<");
-        g_bhi_irq_fired = false;
-    }
-    
+ 
     rtos::ThisThread::sleep_for(std::chrono::milliseconds(50));
 }

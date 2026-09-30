@@ -18,14 +18,10 @@ BHI260Driver::BHI260Driver() {
     // We will initialize it here or leave it for later as requested.
     _interruptPin = INT_BHI260; // Use Nicla's default BHI260 interrupt pin
     _isr_handler = nullptr;
-    _mbedIrq = nullptr;
 }
 
 BHI260Driver::~BHI260Driver() {
     // Destructor implementation
-    if (_mbedIrq != nullptr) {
-        delete _mbedIrq;
-    }
 }
 
 extern BoschSensortec sensortec;
@@ -110,23 +106,20 @@ uint32_t BHI260Driver::getInterruptPin() const {
 void BHI260Driver::configureInterrupt(void (*isr_handler)(void)) {
     if (_interruptPin != 0xFFFFFFFF) {
         _isr_handler = isr_handler;
-        // La instanciacion e interrupcion se haran en enableInterrupt
+        pinMode(_interruptPin, INPUT);
+        attachInterrupt(digitalPinToInterrupt(_interruptPin), _isr_handler, RISING);
     }
 }
 
 void BHI260Driver::enableInterrupt() {
     if (_interruptPin != 0xFFFFFFFF && _isr_handler != nullptr) {
-        if (_mbedIrq == nullptr) {
-            _mbedIrq = new mbed::InterruptIn(digitalPinToPinName(_interruptPin));
-            _mbedIrq->mode(PullNone); // Asumimos circuito configurado correctamente
-        }
-        _mbedIrq->rise(_isr_handler);
+        attachInterrupt(digitalPinToInterrupt(_interruptPin), _isr_handler, RISING);
     }
 }
 
 void BHI260Driver::disableInterrupt() {
-    if (_mbedIrq != nullptr) {
-        _mbedIrq->rise(nullptr);
+    if (_interruptPin != 0xFFFFFFFF) {
+        detachInterrupt(digitalPinToInterrupt(_interruptPin));
     }
 }
 

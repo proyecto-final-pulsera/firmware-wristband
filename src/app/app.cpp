@@ -26,9 +26,8 @@
 // RUTINAS DE SERVICIO DE INTERRUPCION (ISRs)
 // ============================================================================
 
-volatile bool g_bhi_irq_fired = false;
+
 void isr_bhi260() {
-    g_bhi_irq_fired = true;
     AppMessage msg;
     msg.event_id = SystemTask::EVT_BHI_INTERRUPT;
     msg.emisor_id = TASK_ISR_ROUTINE;
@@ -128,7 +127,8 @@ void App::init() {
     // a una tarea que todavia no fue inicializada.
 
     bhi260->enableInterrupt();
-    
+    bhi260->flushFIFOs();
+
     panicBtn->enableInterrupt();
     // notifBtn->enableInterrupt();
     // serialDriver.enableInterrupt(); 

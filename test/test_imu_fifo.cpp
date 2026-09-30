@@ -15,9 +15,9 @@ void runImuFifoTest() {
     Serial.println("--- INICIANDO TEST DE FIFO IMU (10 SEGUNDOS) ---");
     
     BHI260Driver* imu = BHI260Driver::getInstance();
-    
+    imu->init();
     // Obtenemos el singleton
-    ImuRepository* imuSensor = ImuRepository::getInstance();
+    static ImuRepository* imuSensor = ImuRepository::getInstance();
     
     Serial.println("[DEBUG] Etapa 1/6: Configurando Acelerometro a 50Hz...");
     imuSensor->begin(50.0f, 0); 
