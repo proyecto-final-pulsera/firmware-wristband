@@ -9,7 +9,7 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
   - **Descripción:** Carcasa y PCB ensamblados y listos en la muñeca para recolección de datos.
   - **Subtareas HW:**
     - [ ] Comprobar alimentación de vibrador con cambio.
-    - [ ] Re mapear pin PWM.
+    - [X] Re mapear pin PWM.
     - [ ] Re mapear pulsador notificación.
     - [ ] Probar funcionamiento vibrador aislado.
     - [ ] Probar funcionamiento vibrador con el resto del RTOS.
@@ -17,13 +17,17 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
     - [ ] Realizar gestos hápticos de prueba.
 - [ ] **Tarea de Notificaciones y Telemetría**
 
-  - **Descripción:** Implementar la tarea y sus estados a través de los drivers de hardware correspondientes (buzzer, led, etc.).
+  - **Descripción:** Implementar la tarea y sus estados a través de los drivers de hardware correspondientes (LED, vibrador, telemetría).
   - **Subtareas:**
-    - [ ] Definir qué interacciones presenta al sistema (LED, vibrador, batería, etc.).
+    - [X] Definir qué interacciones presenta al sistema (LED, batería, etc.). Implementado en `NotifyTelemetryTask` y `PmicTask`.
+    - [X] Generar task de keep alive (fusionada en `NotifyTelemetryTask`).
+    - [X] Generar mensaje de batería y actividad en el driver de comm (`CMD_TX_BATTERY_DATA`).
     - [ ] Evaluar implementar algoritmo de pulsera no puesta en este módulo.
-    - [ ] Generar mensaje de batería y pulsera puesta en el driver de comm.
-    - [ ] Generar task de keep alive.
-  - **Criterio de aceptación:** Tarea CLI temporal que reciba comandos por serie y accione los semáforos para forzar y validar los estados de notificación.
+    - [ ] Probar que lo implementado funcione (Criterio de aceptación CLI temporal).
+    - [ ] Integrar el uso del vibrador (`CMD_VIBRATOR_GESTURE`).
+    - [ ] **TODO/Evaluar**: Revisar si el dato de la batería lo mandamos por payload o que `CommLinkTask` acceda al driver directamente.
+    - [X] **TODO/Evaluar**: Evaluar si conviene quitar el envío cíclico interno de la tarea y hacerlo a través del `SystemTask` con un timer con timeout.
+  - **Criterio de aceptación:** Tarea CLI temporal que reciba comandos por serie y accione los semáforos/comandos para forzar y validar los estados de notificación.
 
 ## Sprints Previos (Tareas Completadas)
 

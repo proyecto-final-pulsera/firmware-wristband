@@ -3,6 +3,7 @@
 #include "tasks/comm_link_task.h"
 #include "drivers/bhi260_driver.h"
 #include "repositories/event_repository.h"
+#include "tasks/notify_telemetry_task.h"
 
 #include "tasks/alarms_events_task.h"
 #include "drivers/button_driver.h"
@@ -19,6 +20,32 @@ void SystemTask::init() {
 
 bool SystemTask::sendMsg(AppMessage* msg) {
     return _system_task_queue.send(msg);
+}
+
+void SystemTask::setKeepAliveTimer(bool enable) {
+    if (enable) {
+        _keepAliveTicker.attach(mbed::callback(this, &SystemTask::onKeepAliveTick), std::chrono::seconds(60));
+    } else {
+        _keepAliveTicker.detach();
+    }
+}
+
+void SystemTask::setMetricsTimer(bool enable) {
+    if (enable) {
+        _metricsTicker.attach(mbed::callback(this, &SystemTask::onMetricsTick), std::chrono::minutes(5));
+    } else {
+        _metricsTicker.detach();
+    }
+}
+
+void SystemTask::onKeepAliveTick() {
+    // Desde la ISR del Ticker, metemos el evento a CommLinkTask
+    notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_KEEP_ALIVE, TASK_SYSTEM, PRIORITY_LOW);
+}
+
+void SystemTask::onMetricsTick() {
+    // Desde la ISR del Ticker, metemos el evento a NotifyTelemetryTask
+    notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_NOTIF_ACTIVITY_DATA, TASK_SYSTEM, PRIORITY_LOW);
 }
 
 enum TestState {

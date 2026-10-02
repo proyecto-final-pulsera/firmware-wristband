@@ -9,13 +9,14 @@
 
 // Struct de métricas como template para el futuro
 struct MetricsData {
-    uint32_t step_count;
-    // Se pueden agregar más campos a futuro (batería, etc.)
+    uint16_t step_count;
+    // Se pueden agregar más campos a futuro
 };
 
 class CommLinkTask {
     friend class SystemTask;
     friend class AlarmsEventsTask;
+    friend class NotifyTelemetryTask;
 private:
     CommLinkTask() {}
     ~CommLinkTask() {}
@@ -61,7 +62,8 @@ public:
         CMD_TX_FALL_SENSORS    = 0x07,
         CMD_TX_WARNING         = 0x08,
         CMD_TX_PANIC_BTN_PRESS = 0x09,
-        EVT_RX_PACKET          = 0x0A
+        EVT_RX_PACKET          = 0x0A,
+        CMD_TX_BATTERY_DATA    = 0x0B
     };
 
     static CommLinkTask& getInstance() {

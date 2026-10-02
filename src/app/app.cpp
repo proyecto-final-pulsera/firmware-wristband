@@ -4,13 +4,14 @@
 // Tareas
 #include "tasks/system_task.h"
 #include "tasks/comm_link_task.h"
-#include "tasks/notif_ui_task.h"
+#include "tasks/notify_telemetry_task.h"
+#include "tasks/pmic_task.h"
 #include "tasks/alarms_events_task.h"
 
 // Drivers
 #include "drivers/battery_driver.h"
 #include "drivers/bhi260_driver.h"
-//#include "drivers/led_interface.h"
+#include "drivers/led_driver.h"
 #include "drivers/button_driver.h"
 #include "drivers/serial_comm_driver.h"
 #include "drivers/ble_driver.h"
@@ -78,8 +79,8 @@ void App::init() {
     bhi260->configureInterrupt(isr_bhi260);
 
     // Interfaz de Usuario (LEDs y Botones)
-    //LedInterface* led = LedInterface::getInstance();
-    //led->init();
+    LedDriver* led = LedDriver::getInstance();
+    led->init();
 
     PanicButton* panicBtn = PanicButton::getInstance();
     panicBtn->setIrqHandler(isr_panic_button);
@@ -116,7 +117,8 @@ void App::init() {
     
     SystemTask::getInstance().init();
     CommLinkTask::getInstance().init();
-    NotifUiTask::getInstance().init();
+    NotifyTelemetryTask::getInstance().init();
+    PmicTask::getInstance().init();
     AlarmsEventsTask::getInstance().init();
 
 

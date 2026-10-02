@@ -63,11 +63,17 @@ void CommLinkTask::run() {
                     break;
                 }
                 case CMD_TX_METRICS: {
-                    // Leemos pasos, reseteamos driver, guardamos en buffer local por seguridad
-                    _metrics_buffer.step_count = StepCounterRepository::getInstance()->getEventCount();
-                    StepCounterRepository::getInstance()->clearEventCount();
-                    
-                    comm->sendPayload(MSG_METRICS, (uint8_t*)&_metrics_buffer, sizeof(MetricsData));
+                    // El payload ya viene en el mensaje (gracias a NotifyTelemetryTask)
+                    // Para ser seguros, si viene un puntero valido lo enviamos directo
+                    if (msg.payload_ptr != nullptr && msg.payload_len > 0) {
+                        comm->sendPayload(MSG_METRICS, (uint8_t*)msg.payload_ptr, msg.payload_len);
+                    }
+                    break;
+                }
+                case CMD_TX_BATTERY_DATA: {
+                    if (msg.payload_ptr != nullptr && msg.payload_len > 0) {
+                        comm->sendPayload(MSG_BATTERY_DATA, (uint8_t*)msg.payload_ptr, msg.payload_len);
+                    }
                     break;
                 }
                 case CMD_TX_KEEP_ALIVE: {

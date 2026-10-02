@@ -20,6 +20,16 @@ private:
     rtos::Thread _thread;
     MessageQueue<AppMessage, 16> _system_task_queue;
 
+    // --- Timers Cíclicos (ISRs) ---
+    mbed::Ticker _keepAliveTicker;
+    mbed::Ticker _metricsTicker;
+
+    void onKeepAliveTick();
+    void onMetricsTick();
+    
+    void setKeepAliveTimer(bool enable);
+    void setMetricsTimer(bool enable);
+    
     // --- Variables para la MDE del BHI260 ---
     enum BhiMdeState {
         BHI_MDE_IDLE,
@@ -73,7 +83,6 @@ public:
         EVT_BHI_INTERRUPT,
     };
 
-public:
     static SystemTask& getInstance() {
         static SystemTask instance;
         return instance;
