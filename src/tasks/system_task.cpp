@@ -24,7 +24,7 @@ bool SystemTask::sendMsg(AppMessage* msg) {
 
 void SystemTask::setKeepAliveTimer(bool enable) {
     if (enable) {
-        _keepAliveTicker.attach(mbed::callback(this, &SystemTask::onKeepAliveTick), std::chrono::seconds(60));
+        _keepAliveTicker.attach(mbed::callback(this, &SystemTask::onKeepAliveTick), std::chrono::seconds(KEEP_ALIVE_PERIOD_SEC));
     } else {
         _keepAliveTicker.detach();
     }
@@ -32,7 +32,7 @@ void SystemTask::setKeepAliveTimer(bool enable) {
 
 void SystemTask::setMetricsTimer(bool enable) {
     if (enable) {
-        _metricsTicker.attach(mbed::callback(this, &SystemTask::onMetricsTick), std::chrono::minutes(5));
+        _metricsTicker.attach(mbed::callback(this, &SystemTask::onMetricsTick), std::chrono::seconds(METRICS_PERIOD_SEC));
     } else {
         _metricsTicker.detach();
     }
@@ -58,7 +58,12 @@ void SystemTask::run() {
     BHI260Driver* bhi = BHI260Driver::getInstance();
     
     DEBUG_PRINTLN("Tarea Sys iniciada - MODO EVENTOS Y MDE BHI");
+    notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_NOTIF_BATTERY_DATA, TASK_SYSTEM, PRIORITY_LOW);
     
+    
+    // Descomentar las siguientes lineas para arrancar el envio ciclico
+    // setKeepAliveTimer(true);
+    // setMetricsTimer(true);
 
     while (true) {
         // Timeout condicional: si hay rebote de boton pendiente, iteramos rapido. 
@@ -228,4 +233,5 @@ void SystemTask::updateButtonsMde() {
         }
     }
 }
+
 

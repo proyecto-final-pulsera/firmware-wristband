@@ -23,8 +23,9 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
     - [X] Generar task de keep alive (fusionada en `NotifyTelemetryTask`).
     - [X] Generar mensaje de batería y actividad en el driver de comm (`CMD_TX_BATTERY_DATA`).
     - [ ] Evaluar implementar algoritmo de pulsera no puesta en este módulo.
-    - [ ] Probar que lo implementado funcione (Criterio de aceptación CLI temporal).
-    - [ ] Integrar el uso del vibrador (`CMD_VIBRATOR_GESTURE`).
+    - [X] Probar que lo implementado funcione. (Se realizó prueba unitaria al inicio del sistema validando LEDs, métricas y timers).
+    - [ ] Integrar el uso del vibrador (`CMD_VIBRATOR_GESTURE`) y probar gestos.
+    - [ ] Probar el driver de batería con la batería física conectada (actualmente reporta 0 porque no hay batería conectada).
     - [ ] **TODO/Evaluar**: Revisar si el dato de la batería lo mandamos por payload o que `CommLinkTask` acceda al driver directamente.
     - [X] **TODO/Evaluar**: Evaluar si conviene quitar el envío cíclico interno de la tarea y hacerlo a través del `SystemTask` con un timer con timeout.
   - **Criterio de aceptación:** Tarea CLI temporal que reciba comandos por serie y accione los semáforos/comandos para forzar y validar los estados de notificación.

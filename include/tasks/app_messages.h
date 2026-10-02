@@ -51,3 +51,5 @@ struct AppMessage {
     void* payload_ptr;          // Puntero genérico a buffer, datos, structs, etc.
     uint16_t payload_len;       // Largo del buffer apuntado
 };
+
+#define PRE_FALL_PROCESSED_FLAG 0x1 

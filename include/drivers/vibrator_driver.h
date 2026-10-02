@@ -16,7 +16,7 @@ namespace mbed {
 #define PWM_DUTY_MIN 50.0f // Duty mínimo 50%
 
 // Definición de pines para la placa Nicla
-#define VIBRATOR_PWM_PIN    0
+#define VIBRATOR_PWM_PIN    5
 #define VIBRATOR_ENABLE_PIN 3                       
 
 /**

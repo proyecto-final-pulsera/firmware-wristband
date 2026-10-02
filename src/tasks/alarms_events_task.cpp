@@ -1,5 +1,6 @@
 #include "tasks/alarms_events_task.h"
-#include "tasks/notif_ui_task.h"
+#include "tasks/notify_telemetry_task.h"
+#include "tasks/app_messages.h"
 
 #include "mbed.h"
 #include "drivers/bhi260_driver.h"
@@ -182,7 +183,7 @@ DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
         alarmMsg.event_id = CommLinkTask::CMD_TX_ALARM;
         alarmMsg.emisor_id = TASK_ALARMS_EVENTS;
         // Dependiendo si se activó el procesamiento del pre-fall, enviamos el flag
-        alarmMsg.flags = process_preFall ? PRE_FALL_PROCESSED : 0;
+        alarmMsg.flags = process_preFall ? PRE_FALL_PROCESSED_FLAG : 0;
         CommLinkTask::getInstance().sendMsg(&alarmMsg);
     }
 }

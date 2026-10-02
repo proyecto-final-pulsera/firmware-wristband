@@ -12,6 +12,7 @@ MSG_METRICS = 0x05
 MSG_KEEP_ALIVE = 0x06
 MSG_WARNING = 0x08
 MSG_PANIC_BTN_PRESS = 0x09
+MSG_BATTERY_DATA = 0x0B
 
 # Tabla de búsqueda para CRC-8 (Polinomio 0x07)
 CRC8_TABLE = [
@@ -181,10 +182,16 @@ def main():
                         print(f"\n[TELEMETRÍA] Temperatura: {temp_val:.2f} °C")
                         
                 elif msg_type == MSG_METRICS:
-                    if msg_len >= 4:
-                        new_steps = struct.unpack('<I', payload[0:4])[0]
+                    if msg_len >= 2:
+                        new_steps = struct.unpack('<H', payload[0:2])[0]
                         total_steps += new_steps
-                        print(f"\n[TELEMETRÍA] Métricas (Pasos): +{new_steps} | Total Acumulado: {total_steps}")
+                        print(f"\n[TELEMETRIA] Metricas (Pasos): +{new_steps} | Total Acumulado: {total_steps}")
+                        
+                elif msg_type == MSG_BATTERY_DATA:
+                    if msg_len >= 2:
+                        charge = payload[0]
+                        charging = "Si" if payload[1] != 0 else "No"
+                        print(f"\n[TELEMETRIA] Bateria: {charge}% | Cargando: {charging}")
                         
                 elif msg_type == MSG_ALARM:
                     if msg_len >= 1:
@@ -225,3 +232,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

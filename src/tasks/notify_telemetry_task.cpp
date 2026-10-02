@@ -4,6 +4,7 @@
 #include "repositories/imu_repository.h"
 #include "drivers/led_driver.h"
 #include "drivers/vibrator_driver.h"
+#include "utils/debug.h"
 
 BatteryData NotifyTelemetryTask::_shared_battery_data = {0, false};
 MetricsData NotifyTelemetryTask::_shared_metrics_data = {0};
@@ -58,6 +59,9 @@ void NotifyTelemetryTask::run() {
                     // Actualizamos valores reales
                     _shared_battery_data.charge_percent = BatteryDriver::getInstance()->getBatteryCharge();
                     _shared_battery_data.is_charging = (BatteryDriver::getInstance()->getOperatingStatus() == OperatingStatus::Charging);
+                    
+                    DEBUG_PRINT("[NOTIFY_TELEMETRY] Nivel de bateria ");
+                    DEBUG_PRINTLN(_shared_battery_data.is_charging);
                     
                     // Notificamos a la cola usando el pointer en el envelope
                     notifyTask<CommLinkTask>(

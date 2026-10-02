@@ -89,8 +89,8 @@ void App::init() {
     // notifBtn->setIrqHandler(isr_notif_button);
 
     // Vibrador (Desactivado temporalmente a peticion)
-    // VibratorDriver* vibrator = VibratorDriver::getInstance();
-    // vibrator->init();
+    VibratorDriver* vibrator = VibratorDriver::getInstance();
+    vibrator->init();
 
     // Comunicaciones
     SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
