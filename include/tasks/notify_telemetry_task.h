@@ -49,7 +49,7 @@ protected:
         msg.flags = 0;
         msg.payload_ptr = payload_ptr;
         msg.payload_len = payload_len;
-        msg.timestamp = rtos::Kernel::get_ms_count();
+        msg.timestamp = (uint32_t)rtos::Kernel::Clock::now().time_since_epoch().count();
         TargetTask::getInstance().sendMsg(&msg);
     }
 

@@ -49,7 +49,7 @@ struct AppMessage {
     MsgPriority priority_level; // Nivel de prioridad
     uint8_t event_id;           // ID del evento o comando a ejecutar
     TaskId emisor_id;           // Quien envia este mensaje
-    uint32_t timestamp;         // Marca de tiempo (ej. rtos::Kernel::get_ms_count())
+    uint32_t timestamp;         // Marca de tiempo (ej. rtos::Kernel::Clock::now().time_since_epoch().count())
     
     uint32_t flags;             // Banderas de estado adicionales
     

@@ -4,29 +4,51 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
 
 ## Sprint Actual
 
-- [ ] **HITO: HW de la pulsera listo para usar**
+- [ ] **Detección de dispositivo puesto (Off-Wrist Detection)**
+
+  * **Tiempo estimado:** 4 horas
+  * **Descripción:** Comprobar si la pulsera está puesta utilizando los algoritmos y features ya integrados internamente en la IMU.
+  * **Criterio de aceptación:** El sistema detecta exitosamente el cambio de estado (puesta / sacada) al hacer la prueba física.
+
+  - **Subtareas:**
+    - [ ] Fase de Análisis: Investigar y definir la estrategia técnica para realizar la detección.
+    - [ ] Fase de Arquitectura: Definir qué tareas estarán involucradas (MDE en `SystemTask`, interacción con procesamiento).
+    - [ ] Fase de Desarrollo: Implementar la solución en el código.
+- [ ] **Análisis de Métricas Extras (Actividad y Sueño)**
+
+  - **Descripción:** Estudiar la viabilidad y el mecanismo óptimo para calcular métricas avanzadas de usuario.
+  - **Subtareas:**
+    - [ ] Análisis de viabilidad: Sedentarismo.
+    - [ ] Análisis de viabilidad: Tiempo en movimiento.
+    - [ ] Análisis de viabilidad: Tiempo acostado.
+    - [ ] Análisis de viabilidad: Levantamiento durante la noche.
+    - [ ] Definición de arquitectura: Decidir qué se procesará en el Firmware y qué se delegará al Servidor/App.
+
+### Sprint 6 (HW Pulsera y Notificaciones)
+
+- [X] **HITO: HW de la pulsera listo para usar**
 
   - **Descripción:** Carcasa y PCB ensamblados y listos en la muñeca para recolección de datos.
   - **Subtareas HW:**
-    - [ ] Comprobar alimentación de vibrador con cambio.
+    - [X] Comprobar alimentación de vibrador con cambio.
     - [X] Re mapear pin PWM.
-    - [ ] Re mapear pulsador notificación.
-    - [ ] Probar funcionamiento vibrador aislado.
-    - [ ] Probar funcionamiento vibrador con el resto del RTOS.
-    - [ ] Documentar modificaciones en HW para segunda placa.
-    - [ ] Realizar gestos hápticos de prueba.
-- [ ] **Tarea de Notificaciones y Telemetría**
+    - [X] Re mapear pulsador notificación.
+    - [X] Probar funcionamiento vibrador aislado.
+    - [X] Probar funcionamiento vibrador con el resto del RTOS.
+    - [X] Documentar modificaciones en HW para segunda placa.
+    - [X] Realizar gestos hápticos de prueba.
+- [X] **Tarea de Notificaciones y Telemetría**
 
   - **Descripción:** Implementar la tarea y sus estados a través de los drivers de hardware correspondientes (LED, vibrador, telemetría).
   - **Subtareas:**
     - [X] Definir qué interacciones presenta al sistema (LED, batería, etc.). Implementado en `NotifyTelemetryTask` y `PmicTask`.
     - [X] Generar task de keep alive (fusionada en `NotifyTelemetryTask`).
     - [X] Generar mensaje de batería y actividad en el driver de comm (`CMD_TX_BATTERY_DATA`).
-    - [ ] Evaluar implementar algoritmo de pulsera no puesta en este módulo.
+    - [X] Evaluar implementar algoritmo de pulsera no puesta en este módulo. *(Nota: Lo vamos a dejar para implementar desde System donde habra una MDE y en conjunto con la tarea de procesamiento para determinar si la pulsera fue quitada o no).*
     - [X] Probar que lo implementado funcione. (Se realizó prueba unitaria al inicio del sistema validando LEDs, métricas y timers).
-    - [ ] Integrar el uso del vibrador (`CMD_VIBRATOR_GESTURE`) y probar gestos.
-    - [ ] Probar el driver de batería con la batería física conectada (actualmente reporta 0 porque no hay batería conectada).
-    - [ ] **TODO/Evaluar**: Revisar si el dato de la batería lo mandamos por payload o que `CommLinkTask` acceda al driver directamente.
+    - [X] Integrar el uso del vibrador (`CMD_VIBRATOR_GESTURE`) y probar gestos.
+    - [X] Probar el driver de batería con la batería física conectada (actualmente reporta 0 porque no hay batería conectada).
+    - [X] **TODO/Evaluar**: Revisar si el dato de la batería lo mandamos por payload o que `CommLinkTask` acceda al driver directamente.
     - [X] **TODO/Evaluar**: Evaluar si conviene quitar el envío cíclico interno de la tarea y hacerlo a través del `SystemTask` con un timer con timeout.
   - **Criterio de aceptación:** Tarea CLI temporal que reciba comandos por serie y accione los semáforos/comandos para forzar y validar los estados de notificación.
 
@@ -114,12 +136,6 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 * **Descripción:** Generar caídas verdaderas y eventos cotidianos capturando los buffers.
 * **Criterio de aceptación:** Dataset preliminar capturado mediante el script de Python.
 
-### 9. Detección de dispositivo puesto o no
-
-* **Tiempo estimado:** 4 horas
-* **Descripción:** Comprobar si la pulsera está puesta utilizando los algoritmos y features ya integrados internamente en la IMU.
-* **Criterio de aceptación:** El sistema detecta exitosamente el cambio de estado (puesta / sacada) al hacer la prueba física.
-
 ### 12. Detección de intención de re-emparejamiento
 
 * **Tiempo estimado:** 2 horas
@@ -184,24 +200,15 @@ Estas tareas representan los grandes bloques de trabajo (Epics) que deberán ser
 
 ---
 
+### Épica 7: Definición y Gestión del Emparejamiento
+
+* **Alcance:** Firmware / App / Seguridad.
+* **Objetivo:** Establecer el método completo de emparejamiento, reconfiguración y asociación de la pulsera.
+* **Notas para futuro desglose:**
+  - Analizar si se requiere almacenar credenciales (claves de encriptación, tokens) de forma persistente.
+  - Definir métodos de software/hardware que se deban crear (ej: combinación de botones, timeouts).
+  - Diseñar el flujo de reconfiguración del dispositivo (Factory Reset) para desvincularlo y asociarlo con un nuevo usuario.
+
 ## 5. Recordatorios y Notas
 
-- **TODO (Pendiente):** Implementación del método de linkeo/emparejamiento (pairing/bonding) del dispositivo al celular.
 - **Batería:** Modificar la carga máxima a 4.13V. *(Prueba sugerida: dejarla cargando más tiempo para validar si efectivamente la tensión sube hasta ese máximo).*
-- **Procesamiento de Buffer IMU:**
-  - **Contexto:** Los datos se escriben en la clase (posiblemente por un thread recolector) y otro thread se encargará de procesarlos.
-  - **Riesgo:** Si el buffer no se copia o protege adecuadamente, habrá una *condición de carrera* (Race Condition) entre ambos threads.
-  - **Opciones a evaluar para el procesamiento:**
-    1. Procesar los datos de forma interna directamente dentro de la clase.
-    2. Exponer un `struct const` (como un buffer circular de solo lectura) hacia afuera para procesarlos externamente de forma segura.
-    3. Implementar un esquema de **Productor/Consumidor** (Producer/Consumer) utilizando herramientas del RTOS (Mailbox, Queue o EventFlags) para gestionar la concurrencia.
-- **Implementación del Pipeline RTOS (Para Tareas 4 y 9):**
-  - Recordar aplicar Mutex/Critical Section en los buffers.
-  - Utilizar ventana deslizante (`getElementAt`) con solapamiento del 50%.
-  - Implementar flag de OVERRUN para escaneo profundo en caso de retraso.
-  - Evaluar encapsular el procesamiento matemático del algoritmo de caída directamente dentro de `ImuSensorDriver`.
-- **Arquitectura de Envío de Datos (Snapshot Buffer):**
-  - Para evitar perder datos por la latencia de transmisión (BLE/Serial), **NO** se bloqueará el buffer circular de los sensores.
-  - La Capa de Tareas (Capa de Aplicación / Processing Task) debe ser dueña de una estructura de memoria estática (`FallSnapshot` ~12KB) para congelar la "foto" del evento.
-  - Al detectar la caída, la Tarea copia con `memcpy` ambos sensores a esta estructura en < 1ms y manda los punteros a la Queue.
-  - El driver `CommDriver` es 100% agnóstico y **no posee buffers internos de TX** para almacenar el evento; solo recibe el puntero al Snapshot provisto por la Tarea y lo transmite.

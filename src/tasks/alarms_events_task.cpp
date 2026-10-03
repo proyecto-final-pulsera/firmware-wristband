@@ -21,7 +21,7 @@ bool AlarmsEventsTask::sendMsg(AppMessage* msg) {
 #include <stdlib.h> // Para abs()
 #include "repositories/imu_repository.h"
 
-// Función mejorada para 2D usando el primer caso de la tabla
+
 inline uint16_t AlarmsEventsTask::approx_2d_improved(uint16_t a, uint16_t b) {
     // 1. Encontrar el mayor (Max) y el menor (Min)
     uint16_t max_val = (a > b) ? a : b;
