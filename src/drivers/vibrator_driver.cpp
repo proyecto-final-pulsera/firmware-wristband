@@ -29,17 +29,17 @@ VibratorDriver::VibratorDriver() :
     _pwm_pin(nullptr),
     _enable_pin(nullptr)
 {
-    // El init() debe llamarse explicitamente por App::init()
+    
 }
 
 void VibratorDriver::init() {
     // Inicialización de pines usando Mbed OS
     _pwm_pin = new mbed::PwmOut(digitalPinToPinName(VIBRATOR_PWM_PIN));
-    // Pasamos un 0 como segundo parámetro para que nazca en LOW y evitar glitches
+    
     _enable_pin = new mbed::DigitalOut(digitalPinToPinName(VIBRATOR_ENABLE_PIN), 0);
     
     // Configurar frecuencia de PWM: 20kHz -> periodo = 1/20000 = 50 microsegundos
-    _pwm_pin->period_us(50);
+    _pwm_pin->period_us(PWM_PERIOD);
     
     // Inicia deshabilitado
     _pwm_pin->write(0.0f);

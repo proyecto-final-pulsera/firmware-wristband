@@ -11,13 +11,13 @@ namespace mbed {
 //// Drive de DRV2603 Haptic Drive With Auto-Resonance Detection for Linear Resonance Actuators (LRA)
 ////
 ///////////////7//
-#define PWM_FREQ 20000 // Frecuencia de 20KHz
+#define PWM_PERIOD 50 //(us) --  1/20kHz = 50us 
 #define PWM_DUTY_MAX 75.0f // Duty máximo 75%
 #define PWM_DUTY_MIN 50.0f // Duty mínimo 50%
 
 // Definición de pines para la placa Nicla
 #define VIBRATOR_PWM_PIN    5
-#define VIBRATOR_ENABLE_PIN 3                       
+#define VIBRATOR_ENABLE_PIN 0                      
 
 /**
  * @class VibratorDriver

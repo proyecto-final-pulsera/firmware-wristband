@@ -84,6 +84,10 @@ void CommLinkTask::run() {
                     comm->sendPayload(MSG_PANIC_BTN_PRESS, nullptr, 0);
                     break;
                 }
+                case CMD_TX_NOTIF_BTN_PRESS: {
+                    comm->sendPayload(MSG_NOTIF_BTN_PRESS, nullptr, 0);
+                    break;
+                }
                 default:
                     break;
             }

@@ -38,6 +38,12 @@ enum LedNotifyFlags : uint32_t {
     LED_PROFILE_ALARM = (LED_COLOR_RED | LED_MODE_SOLID)
 };
 
+enum VibratorDurationFlags : uint32_t {
+    VIB_DURATION_2S = 0x01,
+    VIB_DURATION_4S = 0x02,
+    VIB_DURATION_7S = 0x04
+};
+
 // Formato de Mensaje Universal para todas las tareas (El "Sobre")
 struct AppMessage {
     MsgPriority priority_level; // Nivel de prioridad

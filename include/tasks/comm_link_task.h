@@ -63,7 +63,8 @@ public:
         CMD_TX_WARNING         = 0x08,
         CMD_TX_PANIC_BTN_PRESS = 0x09,
         EVT_RX_PACKET          = 0x0A,
-        CMD_TX_BATTERY_DATA    = 0x0B
+        CMD_TX_BATTERY_DATA    = 0x0B,
+        CMD_TX_NOTIF_BTN_PRESS = 0x0C
     };
 
     static CommLinkTask& getInstance() {

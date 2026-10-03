@@ -13,6 +13,7 @@ MSG_KEEP_ALIVE = 0x06
 MSG_WARNING = 0x08
 MSG_PANIC_BTN_PRESS = 0x09
 MSG_BATTERY_DATA = 0x0B
+MSG_NOTIF_BTN_PRESS = 0x0C
 
 # Tabla de búsqueda para CRC-8 (Polinomio 0x07)
 CRC8_TABLE = [
@@ -212,6 +213,11 @@ def main():
                 elif msg_type == MSG_PANIC_BTN_PRESS:
                     print(f"\n================================================")
                     print(f" [S.O.S] BOTON DE AYUDA / PANICO PRESIONADO!")
+                    print(f"================================================")
+                    
+                elif msg_type == MSG_NOTIF_BTN_PRESS:
+                    print(f"\n================================================")
+                    print(f" [NOTIF] BOTON DE NOTIFICACION PRESIONADO!")
                     print(f"================================================")
                     
             else:

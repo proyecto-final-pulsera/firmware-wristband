@@ -40,9 +40,7 @@ void isr_serial_rx() {
 }
 
 void isr_panic_button() {
-    // panic_irq_fired = true;
-    // Si la MDE esta en reposo, enmascaramos por software y avisamos al sistema.
-    // (Ignoramos los siguientes rebotes fisicos que disparan la interrupcion).
+
     if (PanicButton::getInstance()->onInterrupt()) {
         AppMessage msg;
         msg.event_id = SystemTask::CMD_EVALUATE_PANIC_BUTTON;
@@ -52,13 +50,13 @@ void isr_panic_button() {
 }
 
 void isr_notif_button() {
-    // // Si la MDE esta en reposo, enmascaramos por software y avisamos al sistema.
-    // if (NotifButton::getInstance()->onInterrupt()) {
-    //     AppMessage msg;
-    //     msg.event_id = SystemTask::CMD_EVALUATE_NOTIF_BUTTON;
-    //     msg.emisor_id = TASK_ISR_ROUTINE; 
-    //     SystemTask::getInstance().sendMsg(&msg);
-    // }
+    
+    if (NotifButton::getInstance()->onInterrupt()) {
+        AppMessage msg;
+        msg.event_id = SystemTask::CMD_EVALUATE_NOTIF_BUTTON;
+        msg.emisor_id = TASK_ISR_ROUTINE; 
+        SystemTask::getInstance().sendMsg(&msg);
+    }
 }
 
 // ============================================================================
@@ -69,7 +67,7 @@ void App::init() {
     // 1. Instanciar e Inicializar Hardware y Drivers Base
     // ------------------------------------------------------------------------
     
-    // PMIC (BaterÃ­a)
+    // PMIC (Bateri­a)
     BatteryDriver* battery = BatteryDriver::getInstance();
     battery->init();
     
@@ -78,17 +76,17 @@ void App::init() {
     bhi260->init();
     bhi260->configureInterrupt(isr_bhi260);
 
-    // Interfaz de Usuario (LEDs y Botones)
+    // Interfaz LED
     LedDriver* led = LedDriver::getInstance();
     led->init();
 
     PanicButton* panicBtn = PanicButton::getInstance();
     panicBtn->setIrqHandler(isr_panic_button);
 
-    // NotifButton* notifBtn = NotifButton::getInstance();
-    // notifBtn->setIrqHandler(isr_notif_button);
+    NotifButton* notifBtn = NotifButton::getInstance();
+    notifBtn->setIrqHandler(isr_notif_button);
 
-    // Vibrador (Desactivado temporalmente a peticion)
+    // Vibrador 
     VibratorDriver* vibrator = VibratorDriver::getInstance();
     vibrator->init();
 
@@ -101,7 +99,7 @@ void App::init() {
     // ------------------------------------------------------------------------
     bhi260->disableNonWakeupFIFO();
     
-    ImuRepository::getInstance()->begin((float)FREQ_IMU, 3000); 
+    ImuRepository::getInstance()->begin((float)FREQ_IMU, 3000); // Latencia de 3000ms
     PressureRepository::getInstance()->begin((float)FREQ_PRESSURE, (uint32_t)-1);
     TemperatureRepository::getInstance()->begin(1.0f, (uint32_t)-1);
 
@@ -115,12 +113,12 @@ void App::init() {
     // ------------------------------------------------------------------------
     // Se configuran e inician los hilos.
     
-    SystemTask::getInstance().init();
+    
     CommLinkTask::getInstance().init();
     NotifyTelemetryTask::getInstance().init();
     PmicTask::getInstance().init();
     AlarmsEventsTask::getInstance().init();
-
+    SystemTask::getInstance().init();
 
     // ------------------------------------------------------------------------
     // 3. Habilitar Interrupciones (Post-RTOS)
@@ -132,6 +130,6 @@ void App::init() {
     bhi260->flushFIFOs();
 
     panicBtn->enableInterrupt();
-    // notifBtn->enableInterrupt();
+    notifBtn->enableInterrupt();
     // serialDriver.enableInterrupt(); 
 }

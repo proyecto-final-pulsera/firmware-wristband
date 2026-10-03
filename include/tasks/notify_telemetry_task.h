@@ -31,6 +31,12 @@ private:
     void run();
     void updateMetrics();
 
+    // Helpers para gestos del vibrador
+    uint32_t decodeVibratorDuration(uint32_t flags);
+    void playVibratorIntermittent(uint32_t duration_ms);
+    void playVibratorContinuous(uint32_t duration_ms);
+    void playVibratorCrescendo(uint32_t duration_ms);
+
 protected:
     bool sendMsg(AppMessage* msg);
 
@@ -49,8 +55,10 @@ protected:
 
 public:
     enum EventId : uint8_t {
-        CMD_VIBRATOR_GESTURE,  // flag = id del gesto
-        CMD_LED_NOTIFY,        // flag = color / modo (bitmask)
+        CMD_VIBRATOR_INTERMITTENT, // flag = tiempo (VibratorDurationFlags)
+        CMD_VIBRATOR_CONTINUOUS,   // flag = tiempo (VibratorDurationFlags)
+        CMD_VIBRATOR_CRESCENDO,    // flag = tiempo (VibratorDurationFlags)
+        CMD_LED_NOTIFY,            // flag = color / modo (bitmask)
         CMD_KEEP_ALIVE_ENA,
         CMD_KEEP_ALIVE_DES,
         CMD_FORCE_KEEP_ALIVE,

@@ -55,12 +55,9 @@ enum TestState {
 
 void SystemTask::run() {
     AppMessage msg;
-    BHI260Driver* bhi = BHI260Driver::getInstance();
     
     DEBUG_PRINTLN("Tarea Sys iniciada - MODO EVENTOS Y MDE BHI");
-    notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_NOTIF_BATTERY_DATA, TASK_SYSTEM, PRIORITY_LOW);
-    
-    
+
     // Descomentar las siguientes lineas para arrancar el envio ciclico
     // setKeepAliveTimer(true);
     // setMetricsTimer(true);
@@ -211,6 +208,7 @@ void SystemTask::updateButtonsMde() {
 
         if (panicBtn->getPressed()) {
             DEBUG_PRINTLN("[SystemTask] PANIC BUTTON - Flanco Detectado!");
+            notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_VIBRATOR_INTERMITTENT, TASK_SYSTEM, PRIORITY_NORMAL, VIB_DURATION_4S);
             notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_PANIC_BTN_PRESS);
         }
 
@@ -226,6 +224,8 @@ void SystemTask::updateButtonsMde() {
 
         if (notifBtn->getPressed()) {
             DEBUG_PRINTLN("[SystemTask] NOTIF BUTTON - Flanco Detectado!");
+            notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_VIBRATOR_CONTINUOUS, TASK_SYSTEM, PRIORITY_NORMAL, VIB_DURATION_2S);
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_NOTIF_BTN_PRESS, TASK_SYSTEM, PRIORITY_NORMAL);
         }
 
         if (notifBtn->isIdle()) {
