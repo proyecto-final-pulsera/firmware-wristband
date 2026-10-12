@@ -3,17 +3,9 @@
 // ==================================================================
 // Singleton
 // ==================================================================
-BatteryDriver* BatteryDriver::_instance = nullptr;
-
 BatteryDriver* BatteryDriver::getInstance() {
-    if (_instance == nullptr) {
-        _instance = createInstance();
-    }
-    return _instance;
-}
-
-BatteryDriver* BatteryDriver::createInstance() {
-    return new BatteryDriver();
+    static BatteryDriver instance;
+    return &instance;
 }
 
 // ==================================================================

@@ -1,16 +1,10 @@
 #include "repositories/imu_repository.h"
-
-ImuRepository* ImuRepository::_instance = nullptr;
-
-ImuRepository* ImuRepository::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new ImuRepository();
-    }
-    return _instance;
-}
+#include <algorithm>
+#include <cstring>
 
 ImuRepository* ImuRepository::getInstance() {
-    return createInstance();
+    static ImuRepository instance;
+    return &instance;
 }
 
 ImuRepository::ImuRepository() 
@@ -145,6 +139,31 @@ uint16_t ImuRepository::getFifoValues(DataXYZ* buffer, uint16_t maxLen) {
     }
     
     return extracted;
+}
+
+const DataXYZ* ImuRepository::getLinearBuffer(uint16_t* outCount) {
+    rtos::ScopedMutexLock lock(_mutex);
+    if (_count == 0) {
+        if (outCount) *outCount = 0;
+        return nullptr;
+    }
+    if (_tail != 0) {
+        if (_count == IMU_FIFO_SIZE) {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[IMU_FIFO_SIZE]);
+            _tail = 0;
+            _head = 0;
+        } else if (_head > _tail) {
+            std::memmove(&_fifo[0], &_fifo[_tail], _count * sizeof(DataXYZ));
+            _tail = 0;
+            _head = _count;
+        } else {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[IMU_FIFO_SIZE]);
+            _tail = 0;
+            _head = _count % IMU_FIFO_SIZE;
+        }
+    }
+    if (outCount) *outCount = _count;
+    return _fifo;
 }
 
 uint16_t ImuRepository::copyFifoValues(DataXYZ* buffer, uint16_t maxLen) {

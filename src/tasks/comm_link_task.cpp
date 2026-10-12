@@ -3,6 +3,7 @@
 #include "drivers/serial_comm_driver.h"
 #include "repositories/temperature_repository.h"
 #include "repositories/event_repository.h"
+#include "drivers/ble_driver.h"
 
 void CommLinkTask::init() {
     // Iniciar el hilo asociado al metodo run de esta instancia
@@ -15,36 +16,46 @@ bool CommLinkTask::sendMsg(AppMessage* msg) {
 
 void CommLinkTask::run() {
     AppMessage msg;
-    SerialCommDriver* comm = SerialCommDriver::getInstance();
+    BleDriver* comm = BleDriver::getInstance();
 
     while (true) {
         if (_comm_link_task_queue.receive(&msg)) {
             switch (msg.event_id) {
                 case CMD_TX_IMU_BUFFER: {
-                    uint16_t count = ImuRepository::getInstance()->getFifoValues(_imu_tx_buffer, IMU_FIFO_SIZE);
-                    // ImuRepository::getInstance()->rewind(count);
-                    comm->sendPayload(MSG_IMU_BUFFER, (uint8_t*)_imu_tx_buffer, count * sizeof(DataXYZ));
+                    uint16_t count = 0;
+                    const DataXYZ* buf = ImuRepository::getInstance()->getLinearBuffer(&count);
+                    if (buf != nullptr && count > 0) {
+                        comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)buf, count * sizeof(DataXYZ));
+                        ImuRepository::getInstance()->fifoFlush();
+                    }
                     break;
                 }
                 case CMD_TX_PRESSURE_BUFFER: {
-                    uint16_t count = PressureRepository::getInstance()->getFifoValues(_pressure_tx_buffer, PRESSURE_FIFO_SIZE);
-                    // PressureRepository::getInstance()->rewind(count);
-                    comm->sendPayload(MSG_PRESSURE_BUFFER, (uint8_t*)_pressure_tx_buffer, count * sizeof(float));
+                    uint16_t count = 0;
+                    const float* buf = PressureRepository::getInstance()->getLinearBuffer(&count);
+                    if (buf != nullptr && count > 0) {
+                        comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)buf, count * sizeof(float));
+                        PressureRepository::getInstance()->fifoFlush();
+                    }
                     break;
                 }
                 case CMD_TX_FALL_SENSORS: {
-                    // Copiamos ambos buffers a los locales (vaciando las FIFOs)
-                    uint16_t imuCount = ImuRepository::getInstance()->getFifoValues(_imu_tx_buffer, IMU_FIFO_SIZE);
-                    uint16_t presCount = PressureRepository::getInstance()->getFifoValues(_pressure_tx_buffer, PRESSURE_FIFO_SIZE);
-                    float temp = TemperatureRepository::getInstance()->getTemp();
-                    
-                    // ImuRepository::getInstance()->rewind(imuCount);
-                    // PressureRepository::getInstance()->rewind(presCount);
+                    uint16_t imuCount = 0;
+                    const DataXYZ* imuBuf = ImuRepository::getInstance()->getLinearBuffer(&imuCount);
+                    if (imuBuf != nullptr && imuCount > 0) {
+                        comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)imuBuf, imuCount * sizeof(DataXYZ));
+                        ImuRepository::getInstance()->fifoFlush();
+                    }
 
-                    // Enviamos en secuencia
-                    comm->sendPayload(MSG_IMU_BUFFER, (uint8_t*)_imu_tx_buffer, imuCount * sizeof(DataXYZ));
-                    comm->sendPayload(MSG_PRESSURE_BUFFER, (uint8_t*)_pressure_tx_buffer, presCount * sizeof(float));
-                    comm->sendPayload(MSG_TEMPERATURE, (uint8_t*)&temp, sizeof(float));
+                    uint16_t presCount = 0;
+                    const float* presBuf = PressureRepository::getInstance()->getLinearBuffer(&presCount);
+                    if (presBuf != nullptr && presCount > 0) {
+                        comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)presBuf, presCount * sizeof(float));
+                        PressureRepository::getInstance()->fifoFlush();
+                    }
+
+                    float temp = TemperatureRepository::getInstance()->getTemp();
+                    comm->sendPayload(MSG_TEMPERATURE, (const uint8_t*)&temp, sizeof(float));
                     break;
                 }
                 case CMD_TX_TEMPERATURE: {

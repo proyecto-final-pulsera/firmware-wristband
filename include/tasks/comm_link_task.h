@@ -6,6 +6,7 @@
 #include "repositories/imu_repository.h"
 #include "repositories/pressure_repository.h"
 #include "tasks/alarms_events_task.h"
+#include "app/config.h"
 
 // Struct de métricas como template para el futuro
 struct MetricsData {
@@ -18,7 +19,7 @@ class CommLinkTask {
     friend class AlarmsEventsTask;
     friend class NotifyTelemetryTask;
 private:
-    CommLinkTask() {}
+    CommLinkTask() : _thread(osPriorityNormal, STACK_SIZE_COMM_LINK_TASK) {}
     ~CommLinkTask() {}
 
     CommLinkTask(const CommLinkTask&) = delete;
@@ -27,9 +28,6 @@ private:
     rtos::Thread _thread;
     MessageQueue<AppMessage, 16> _comm_link_task_queue;
 
-    // Buffers locales para resguardo antes de enviar
-    DataXYZ _imu_tx_buffer[IMU_FIFO_SIZE];
-    float _pressure_tx_buffer[PRESSURE_FIFO_SIZE];
     MetricsData _metrics_buffer;
 
     void run();

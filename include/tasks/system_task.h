@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "tasks/app_messages.h"
 #include "utils/message_queue.h"
+#include "app/config.h"
 
 #define KEEP_ALIVE_PERIOD_SEC   60
 #define METRICS_PERIOD_SEC      300 // 5 minutos
@@ -12,7 +13,7 @@ class SystemTask {
 
 private:
     // Constructor privado (Patron Singleton)
-    SystemTask() {}
+    SystemTask() : _thread(osPriorityNormal, STACK_SIZE_SYSTEM_TASK) {}
     ~SystemTask() {}
 
     // Evitar copias

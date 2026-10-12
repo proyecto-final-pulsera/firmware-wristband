@@ -5,7 +5,6 @@
 class LedDriver {
 private:
     LedDriver();
-    static LedDriver* _instance;
     
     bool _ledState;
     RGBColors _ledColor;

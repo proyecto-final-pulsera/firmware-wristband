@@ -73,9 +73,6 @@ public:
     void disableInterrupt();
 
 private:
-    static BHI260Driver* _instance;
-    static BHI260Driver* createInstance();
-
     BHI260Driver();
     ~BHI260Driver();
     

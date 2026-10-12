@@ -24,9 +24,6 @@ private:
      * no-wakeup (BHI260Driver::ID_ACCEL) y resetea la FIFO.
      */
     ImuRepository();
-    
-    static ImuRepository* _instance;
-    static ImuRepository* createInstance();
 
 public:
     virtual ~ImuRepository();
@@ -119,6 +116,14 @@ public:
      * @return Cantidad de elementos extraídos.
      */
     uint16_t getFifoValues(DataXYZ* buffer, uint16_t maxLen);
+
+    /**
+     * @brief Lineariza la FIFO circular en el buffer interno _fifo (in-place)
+     * y retorna el puntero directo para transmisión sin requerir buffers duplicados.
+     * @param outCount Puntero donde se devuelve la cantidad de elementos disponibles.
+     * @return Puntero constante a los datos contiguos en _fifo, o nullptr si está vacía.
+     */
+    const DataXYZ* getLinearBuffer(uint16_t* outCount);
 
     /**
      * @brief Copia los datos actuales de la FIFO sin extraerlos (sin pop).

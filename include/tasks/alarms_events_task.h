@@ -13,7 +13,7 @@ class AlarmsEventsTask {
 
 private:
     // Constructor privado (Patron Singleton)
-    AlarmsEventsTask() {}
+    AlarmsEventsTask() : _thread(osPriorityNormal, STACK_SIZE_ALARMS_EVENTS_TASK) {}
     ~AlarmsEventsTask() {}
 
     // Evitar copias

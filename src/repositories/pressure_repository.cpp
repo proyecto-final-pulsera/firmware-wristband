@@ -1,17 +1,11 @@
 #include "repositories/pressure_repository.h"
 #include "sensors/DataParser.h"
-
-PressureRepository* PressureRepository::_instance = nullptr;
-
-PressureRepository* PressureRepository::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new PressureRepository();
-    }
-    return _instance;
-}
+#include <algorithm>
+#include <cstring>
 
 PressureRepository* PressureRepository::getInstance() {
-    return createInstance();
+    static PressureRepository instance;
+    return &instance;
 }
 
 PressureRepository::PressureRepository() 
@@ -133,6 +127,31 @@ uint16_t PressureRepository::getFifoValues(float* buffer, uint16_t maxLen) {
     }
     
     return extracted;
+}
+
+const float* PressureRepository::getLinearBuffer(uint16_t* outCount) {
+    rtos::ScopedMutexLock lock(_mutex);
+    if (_count == 0) {
+        if (outCount) *outCount = 0;
+        return nullptr;
+    }
+    if (_tail != 0) {
+        if (_count == PRESSURE_FIFO_SIZE) {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[PRESSURE_FIFO_SIZE]);
+            _tail = 0;
+            _head = 0;
+        } else if (_head > _tail) {
+            std::memmove(&_fifo[0], &_fifo[_tail], _count * sizeof(float));
+            _tail = 0;
+            _head = _count;
+        } else {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[PRESSURE_FIFO_SIZE]);
+            _tail = 0;
+            _head = _count % PRESSURE_FIFO_SIZE;
+        }
+    }
+    if (outCount) *outCount = _count;
+    return _fifo;
 }
 
 uint16_t PressureRepository::copyFifoValues(float* buffer, uint16_t maxLen) {

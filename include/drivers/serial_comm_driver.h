@@ -4,9 +4,6 @@
 
 class SerialCommDriver : public CommDriver {
 private:
-    static SerialCommDriver* _instance;
-    static SerialCommDriver* createInstance();
-    
     SerialCommDriver() = default;
 
     static void onSerialRx();

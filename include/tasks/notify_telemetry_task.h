@@ -5,6 +5,7 @@
 #include "utils/message_queue.h"
 #include "tasks/comm_link_task.h" // Para MetricsData
 #include "repositories/event_repository.h"
+#include "app/config.h"
 
 // Estructuras de datos a compartir 
 struct BatteryData {
@@ -16,7 +17,7 @@ class NotifyTelemetryTask {
     friend class SystemTask;
 
 private:
-    NotifyTelemetryTask() {}
+    NotifyTelemetryTask() : _thread(osPriorityNormal, STACK_SIZE_NOTIFY_TELEMETRY_TASK) {}
     ~NotifyTelemetryTask() {}
     NotifyTelemetryTask(const NotifyTelemetryTask&) = delete;
     NotifyTelemetryTask& operator=(const NotifyTelemetryTask&) = delete;

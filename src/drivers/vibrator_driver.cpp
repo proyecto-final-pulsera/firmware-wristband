@@ -4,17 +4,9 @@
 // ==================================================================
 // Singleton
 // ==================================================================
-VibratorDriver* VibratorDriver::_instance = nullptr;
-
 VibratorDriver* VibratorDriver::getInstance() {
-    if (_instance == nullptr) {
-        _instance = createInstance();
-    }
-    return _instance;
-}
-
-VibratorDriver* VibratorDriver::createInstance() {
-    return new VibratorDriver();
+    static VibratorDriver instance;
+    return &instance;
 }
 
 // ==================================================================

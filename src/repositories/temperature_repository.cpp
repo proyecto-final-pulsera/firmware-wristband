@@ -1,17 +1,9 @@
 #include "repositories/temperature_repository.h"
 #include "sensors/DataParser.h"
 
-TemperatureRepository* TemperatureRepository::_instance = nullptr;
-
-TemperatureRepository* TemperatureRepository::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new TemperatureRepository();
-    }
-    return _instance;
-}
-
 TemperatureRepository* TemperatureRepository::getInstance() {
-    return createInstance();
+    static TemperatureRepository instance;
+    return &instance;
 }
 
 TemperatureRepository::TemperatureRepository()

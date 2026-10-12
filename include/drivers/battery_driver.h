@@ -53,9 +53,6 @@ public:
     void ping();
 
 private:
-    static BatteryDriver* _instance;
-    static BatteryDriver* createInstance();
-
     BatteryDriver();
 
     // Instancia de la clase nicla para interactuar con la API del sistema

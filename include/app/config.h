@@ -34,3 +34,11 @@
 
 // numero de veces que se procesa el buffer recibido de IMU luego de recibir un evento de "No caida".
 #define NUM_PROCESS_POST_NOMOTION 3
+
+// --- Tamaños de Stack para Tareas RTOS (en bytes) ---
+// Optimizados para la RAM de 64 KB del nRF52832 (por defecto Mbed OS asigna 4096B por hilo)
+#define STACK_SIZE_PMIC_TASK             768
+#define STACK_SIZE_NOTIFY_TELEMETRY_TASK 1024
+#define STACK_SIZE_ALARMS_EVENTS_TASK    1280
+#define STACK_SIZE_SYSTEM_TASK           1536
+#define STACK_SIZE_COMM_LINK_TASK        1536

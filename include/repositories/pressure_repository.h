@@ -26,8 +26,6 @@ public:
 
 private:
     PressureRepository();
-    static PressureRepository* _instance;
-    static PressureRepository* createInstance();
 
 public:
     // --- Métodos virtuales puros reescritos de SensorClass ---
@@ -41,6 +39,7 @@ public:
     bool pop(float& data);
     uint16_t getAvailableCount() const;
     uint16_t getFifoValues(float* buffer, uint16_t maxLen);
+    const float* getLinearBuffer(uint16_t* outCount);
 
     uint16_t copyFifoValues(float* buffer, uint16_t maxLen);
     uint16_t copyFifoValues(float* buffer, uint16_t maxLen, uint16_t index);

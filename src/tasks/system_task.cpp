@@ -59,8 +59,8 @@ void SystemTask::run() {
     DEBUG_PRINTLN("Tarea Sys iniciada - MODO EVENTOS Y MDE BHI");
 
     // Descomentar las siguientes lineas para arrancar el envio ciclico
-    // setKeepAliveTimer(true);
-    // setMetricsTimer(true);
+    setKeepAliveTimer(true);
+    setMetricsTimer(true);
 
     while (true) {
         // Timeout condicional: si hay rebote de boton pendiente, iteramos rapido. 

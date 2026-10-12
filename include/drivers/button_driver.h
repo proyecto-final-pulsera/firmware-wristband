@@ -68,7 +68,6 @@ public:
 
 private:
     PanicButton();
-    static PanicButton* _instance;
 };
 
 // =============================================================================
@@ -83,6 +82,5 @@ public:
 
 private:
     NotifButton();
-    static NotifButton* _instance;
 };
 

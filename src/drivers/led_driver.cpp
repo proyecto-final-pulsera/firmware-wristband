@@ -1,12 +1,8 @@
 #include "drivers/led_driver.h"
 
-LedDriver* LedDriver::_instance = nullptr;
-
 LedDriver* LedDriver::getInstance() {
-    if (_instance == nullptr) {
-        _instance = new LedDriver();
-    }
-    return _instance;
+    static LedDriver instance;
+    return &instance;
 }
 
 LedDriver::LedDriver() : _ledState(false), _ledColor(RGBColors::off) {
