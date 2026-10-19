@@ -12,7 +12,7 @@ class SystemTask {
     // Permitimos que el SystemTask orqueste y envie mensajes a esta tarea
 
 private:
-    // Constructor privado (Patron Singleton)
+    // TODO: Monitorear stack con _thread.max_stack(); verificar si 1536 B es suficiente bajo alta concurrencia
     SystemTask() : _thread(osPriorityNormal, STACK_SIZE_SYSTEM_TASK) {}
     ~SystemTask() {}
 
@@ -47,6 +47,8 @@ private:
     uint8_t _bhi_disconnect_counter = 0;
     bool _flag_bhi_irq = false;
     bool _flag_bhi_updated = false;
+    bool _flag_process_full_buffer = false;
+    uint32_t _delayed_tx_count = 0;
 
     bool _panic_mde_active = false;
     bool _notif_mde_active = false;
@@ -84,7 +86,10 @@ public:
         CMD_EVALUATE_NOTIF_BUTTON,
         BHI_UPDATED,
         EVT_BHI_INTERRUPT,
+        EVT_TX_DELAYED,
     };
+
+    uint32_t getDelayedTxCount() const { return _delayed_tx_count; }
 
     static SystemTask& getInstance() {
         static SystemTask instance;

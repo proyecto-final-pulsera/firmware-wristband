@@ -1,32 +1,31 @@
-// #include <Arduino.h>
-#include "app/app.h"
-// #include "rtos.h"
-
-
-// #include <ArduinoBLE.h>
-
-// void setup() {
-//     Serial.begin(115200);
-    
-//     App::init();
-// }
-
-// void loop() {
-//     BLE.poll();
-//     // rtos::ThisThread::sleep_for(std::chrono::milliseconds(50));
-
-// }
-
-
 #include <Arduino.h>
-#include "Nicla_System.h"
-#include "drivers/ble_driver.h"
+#include "app/app.h"
+#include "rtos.h"
 
-BleDriver* bleComm;
 
-// Variables para pruebas de tiempo
-unsigned long lastTick = 0;
-unsigned long lastHugeBuffer = 0;
+#include <ArduinoBLE.h>
+
+void setup() {
+    Serial.begin(115200);
+    
+    App::init();
+}
+
+void loop() {
+    rtos::ThisThread::sleep_for(std::chrono::milliseconds(50));
+}
+
+
+// #include <Arduino.h>
+// #include "Nicla_System.h"
+// #include "drivers/ble_driver.h"
+// #include "app/app.h"
+
+// BleDriver* bleComm;
+
+// // Variables para pruebas de tiempo
+// unsigned long lastTick = 0;
+// unsigned long lastHugeBuffer = 0;
 
 // Simulamos el "peor caso": Buffer gigante de 5314 bytes (16 segs de datos)
 /*
@@ -98,37 +97,37 @@ unsigned long lastHugeBuffer = 0;
 //     }
 // }
 
-void setup() {
-    Serial.begin(115200);
-    // while(!Serial);
+// void setup() {
+//     Serial.begin(115200);
+//     // while(!Serial);
 
-    Serial.println("\n=== Iniciando Entorno de Prueba: BleDriver ===");
+//     Serial.println("\n=== Iniciando Entorno de Prueba: BleDriver ===");
 
-    // Inicializar el sistema base de Nicla (necesario para BLE y sensores)
-    nicla::begin();
-    nicla::leds.begin();
-    nicla::leds.setColor(blue); // Azul indica inicializando/desconectado
+//     // Inicializar el sistema base de Nicla (necesario para BLE y sensores)
+//     nicla::begin();
+//     nicla::leds.begin();
+//     nicla::leds.setColor(blue); // Azul indica inicializando/desconectado
 
-    // Obtener instancia e inicializar driver
-    bleComm = BleDriver::getInstance();
-    bleComm->init();
+//     // Obtener instancia e inicializar driver
+//     bleComm = BleDriver::getInstance();
+//     bleComm->init();
     
-    // Vincular la interrupción de recepción
-    // bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
-    // bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
+//     // Vincular la interrupción de recepción
+//     // bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
+//     // bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
 
-    // Rellenar buffer gigante con datos falsos (un patrón repetitivo)
-    // for (int i=0; i<sizeof(testBuffer); i++) {
-    //     testBuffer[i] = (uint8_t)(i % 256);
-    // }
+//     // Rellenar buffer gigante con datos falsos (un patrón repetitivo)
+//     // for (int i=0; i<sizeof(testBuffer); i++) {
+//     //     testBuffer[i] = (uint8_t)(i % 256);
+//     // }
 
-    Serial.println("BLE Configurado correctamente.");
-    Serial.println("Esperando conexión desde el smartphone...");
-    App::init();
+//     Serial.println("BLE Configurado correctamente.");
+//     Serial.println("Esperando conexión desde el smartphone...");
+//     App::init();
 
-}
+// }
 
-void loop() {
-    BLE.poll();
-    delay(10);
-}
+// void loop() {
+//     BLE.poll();
+//     delay(10);
+// }

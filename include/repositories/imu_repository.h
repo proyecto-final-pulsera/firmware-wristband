@@ -140,12 +140,20 @@ public:
      */
     uint16_t copyFifoValuesUnprotected(DataXYZ* buffer, uint16_t maxLen, uint16_t index) const;
 
+    void lock();
+    void unlock();
+
+    void fifoFlushUnprotected();
+    const DataXYZ* getLinearBufferUnprotected(uint16_t* outCount);
+    bool popUnprotected(DataXYZ& data);
+    uint16_t getAvailableCountUnprotected() const;
+
     // --- Métodos temporales de Test ---
     uint32_t getTotalPushed() const;
     void resetTotalPushed();
 
 private:
-    rtos::Mutex _mutex;
+    mutable rtos::Mutex _mutex;
     DataXYZ _fifo[IMU_FIFO_SIZE];
     uint16_t _head;   // Índice donde se insertará el próximo elemento
     uint16_t _tail;   // Índice del elemento más antiguo para extraer

@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#define DEBUG
 
 #ifdef DEBUG
     #define DEBUG_PRINT(...)    Serial.print(__VA_ARGS__)

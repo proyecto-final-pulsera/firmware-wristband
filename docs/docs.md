@@ -186,75 +186,179 @@ Para coordinar el sistema de tiempo real (Mbed OS), se implementó un sistema de
 
 ---
 
-## 9. Tarea de Procesamiento de Ca�das (AlarmsEventsTask)
+## 9. Tarea de Procesamiento de Caídas (AlarmsEventsTask)
 
-### 9.1 Refactorizaci�n a Procesamiento Bajo Demanda (On-Demand)
+### 9.1 Refactorización a Procesamiento Bajo Demanda (On-Demand)
 
-Se redise�� el bucle principal (
-un) de la tarea para procesar los datos �nicamente bajo demanda y no de forma continua:
+Se rediseñó el bucle principal (`run()`) de la tarea para procesar los datos únicamente bajo demanda y no de forma continua:
 
 - **CMD_PROCESS_IMU:** Al recibir este mensaje, la tarea extrae el segmento de datos actual del buffer y lo procesa en ese mismo instante. Luego vuelve al estado de bloqueo pasivo esperando el siguiente comando.
-- La tarea permanece suspendida (timeout osWaitForever) la mayor parte del tiempo, lo cual asegura el ahorro de bater�a hasta que una interrupci�n o el SystemTask solicite un procesamiento.
+- La tarea permanece suspendida (timeout `osWaitForever`) la mayor parte del tiempo, lo cual asegura el ahorro de batería hasta que una interrupción o el `SystemTask` solicite un procesamiento.
 
-### 9.2 Procesamiento Matem�tico Optimizado
+### 9.2 Procesamiento Matemático Optimizado
 
-- Se integr� la funci�n pprox_2d_improved y se implement� suma_pitagorica para calcular la magnitud del vector de aceleraci�n 3D en base a valores absolutos.
+- Se integró la función `approx_2d_improved` y se implementó `suma_pitagorica` para calcular la magnitud del vector de aceleración 3D en base a valores absolutos.
 - Referencia del algoritmo: [Alpha max plus beta min algorithm](https://en.wikipedia.org/wiki/Alpha_max_plus_beta_min_algorithm)
-- Esta aproximaci�n evita el uso de operaciones costosas (como la multiplicaci�n y la ra�z cuadrada) en el microcontrolador.
-- **Rendimiento medido:** El tiempo de procesamiento para un buffer de 6 segundos sin reutilizar muestras previas (es decir, recalculando absolutamente todo el buffer) es de **2700 us** con la optimizaci�n de valor m�dulo. En contraposici�n, si se utiliza la expresi�n real (ra�z cuadrada de la sumatoria de los cuadrados), el tiempo asciende a **50000 us**. Finalmente, al precalcular el arreglo de m�dulos antes de recorrer la ventana deslizante (evitando calcular m�ltiples veces la misma muestra), el tiempo se reduce dr�sticamente a **800 us**.
+- Esta aproximación evita el uso de operaciones costosas (como la multiplicación y la raíz cuadrada) en el microcontrolador.
+- **Rendimiento medido:** El tiempo de procesamiento para un buffer de 6 segundos sin reutilizar muestras previas (es decir, recalculando absolutamente todo el buffer) es de **2700 us** con la optimización de valor módulo. En contraposición, si se utiliza la expresión real (raíz cuadrada de la sumatoria de los cuadrados), el tiempo asciende a **50000 us**. Finalmente, al precalcular el arreglo de módulos antes de recorrer la ventana deslizante (evitando calcular múltiples veces la misma muestra), el tiempo se reduce drásticamente a **800 us**.
 
-### 9.3 Extracci�n de la "Ventana de Impacto"
+### 9.3 Extracción de la "Ventana de Impacto"
 
-- Se defini� que el buffer de la IMU (IMU_FIFO_SIZE = 800 muestras) estar�, en teor�a, siempre lleno durante la ejecuci�n continua.
-- Se lee un segmento de 6 segundos (IMPACT_WINDOW_SIZE = 300 muestras) ubicado exactamente en el **medio** del hist�rico del buffer, extray�ndolo con un �ndice precalculado por el compilador: START_IMPACT_WINDOW_INDEX = (IMU_FIFO_SIZE / 2) - (IMPACT_WINDOW_SIZE / 2).
+- Se definió que el buffer de la IMU (`IMU_FIFO_SIZE` = 800 muestras) estará, en teoría, siempre lleno durante la ejecución continua.
+- Se lee un segmento de 6 segundos (`IMPACT_WINDOW_SIZE` = 300 muestras) ubicado exactamente en el **medio** del histórico del buffer, extrayéndolo con un índice precalculado por el compilador: `START_IMPACT_WINDOW_INDEX = (IMU_FIFO_SIZE / 2) - (IMPACT_WINDOW_SIZE / 2)`.
 
-### 9.4 Detecci�n por "Ventana Deslizante" (Sliding Window)
+### 9.4 Detección por "Ventana Deslizante" (Sliding Window)
 
-- Se barre la ventana de impacto (300 muestras) utilizando una sub-ventana deslizante de tama�o 8 (SLIDING_WINDOW_SIZE = 8).
-- Se utiliza un desplazamiento de bits (>> 3) en lugar de una divisi�n matem�tica para promediar la magnitud de la sub-ventana de forma extremadamente r�pida.
-- Si el promedio baja del THRESHOLD_FREE_FALL, se levanta una bandera.
-- Si supera el THRESHOLD_IMPACT, se levanta otra bandera.
-- Si ambas banderas se detectan en la misma ventana de impacto de 6 segundos, se cumple la CONDICION DE CAIDA y se interrumpe la b�squeda.
+- Se barre la ventana de impacto (300 muestras) utilizando una sub-ventana deslizante de tamaño 8 (`SLIDING_WINDOW_SIZE = 8`).
+- Se utiliza un desplazamiento de bits (`>> 3`) en lugar de una división matemática para promediar la magnitud de la sub-ventana de forma extremadamente rápida.
+- Si el promedio baja del `THRESHOLD_FREE_FALL`, se levanta una bandera.
+- Si supera el `THRESHOLD_IMPACT`, se levanta otra bandera.
+- Si ambas banderas se detectan en la misma ventana de impacto de 6 segundos, se cumple la CONDICION DE CAIDA y se interrumpe la búsqueda.
 
 ### 9.5 Validación Inicial "Wake Up" y Procesamiento Pre-Fall
 
-- Se implemento un comando especial CMD_PROCESS_IMU_WAKEUP (enviado por el SystemTask cuando detecta que el buffer se lleno por completo).
-- **Justificacion de Diseño:** En la primer llamada luego de un *wake up*, es necesario procesar el *pre-fall* desde el inicio del buffer, por si el evento de caida sucedio inmediatamente una vez se desperto el equipo y no dio tiempo a loguear el *pre-fall* en el flujo habitual.
-- Para ahorrar memoria RAM, se reutiliza el mismo buffer (_imu_window_buffer). Primero se procesan los 6 segundos iniciales, y si no hay alarma, se procesan los 6 segundos centrales, arrastrando las banderas de estado (all_flags) con una compuerta *OR* a traves de ambas etapas.
-- Dependiendo de si se evaluo esta condicion de *Wake Up*, el mensaje final de alarma (a traves de CMD_TX_ALARM) adjuntar� el flag PRE_FALL_PROCESSED.
-- **Rendimiento:** Al procesar dos ventanas secuenciales en el peor de los casos (cuando no se detecta alarma tempranamente), esta funcion especifica demora el doble de tiempo (aprox. **1700 us** frente a los 800 us regulares).
-- **Limitacion:** Por la implementacion actual de reutilizacion del mismo buffer, SOLO soporta tiempos de pre_fall menores al tiempo de la ventana de procesamiento (menos 1 segundo de margen), es decir < WINDOW_PROCESAMIENTO - 1Seg.
+- Se implementó un comando especial `CMD_PROCESS_IMU_WAKEUP` (enviado por el `SystemTask` cuando detecta que el buffer se llenó por completo).
+- **Justificación de Diseño:** En la primera llamada luego de un *wake up*, es necesario procesar el *pre-fall* desde el inicio del buffer, por si el evento de caída sucedió inmediatamente una vez se despertó el equipo y no dio tiempo a loguear el *pre-fall* en el flujo habitual.
+- Para ahorrar memoria RAM, se reutiliza el mismo buffer (`_imu_window_buffer`). Primero se procesan los 6 segundos iniciales, y si no hay alarma, se procesan los 6 segundos centrales, arrastrando las banderas de estado (`fall_flags`) con una compuerta *OR* a través de ambas etapas.
+- Dependiendo de si se evaluó esta condición de *Wake Up*, el mensaje final de alarma (a través de `CMD_TX_ALARM`) adjuntará el flag `PRE_FALL_PROCESSED`.
+- **Rendimiento:** Al procesar dos ventanas secuenciales en el peor de los casos (cuando no se detecta alarma tempranamente), esta función específica demora el doble de tiempo (aprox. **1700 us** frente a los 800 us regulares).
+- **Limitación:** Por la implementación actual de reutilización del mismo buffer, SOLO soporta tiempos de *pre_fall* menores al tiempo de la ventana de procesamiento (menos 1 segundo de margen), es decir `< WINDOW_PROCESAMIENTO - 1Seg`.
 
-## Decisiones Arquitectónicas: Tareas Cíclicas y Manejo de Interrupciones
+### 9.6 Calibración de Sensibilidad: Umbral de Caída Libre (THRESHOLD_FREE_FALL = 2000)
 
-### 1. Filosofía de Creación de Tareas (Overhead vs. Aislamiento)
+En la máquina de detección de caídas en dos fases, el algoritmo busca secuencialmente una fase de **ingravidez o caída libre** (donde la aceleración resultante cae por debajo de la gravedad terrestre de 1G) y un posterior **impacto violento** (`THRESHOLD_IMPACT = 7000`) dentro de una ventana de impacto común de 6 segundos.
+
+* **El Problema del Umbral Inicial (1500):** Originalmente, el parámetro estaba configurado en `#define THRESHOLD_FREE_FALL 1500`. En pruebas experimentales y dinámicas con sujetos reales se observó que este valor resultaba excesivamente estricto: únicamente caídas bruscas en caída libre vertical pura lograban que la aceleración cayera por debajo de 1500 unidades raw. En caídas más realistas (tropezones con rotación, resbalones donde la persona intenta estabilizarse o movimientos involuntarios de braceo), la aceleración promedio de la ventana deslizante no llegaba a perforar dicho piso. Como consecuencia, el sistema generaba **falsos negativos** (caídas reales que no eran detectadas).
+* **Calibración a 2000:** Al elevar el umbral a `#define THRESHOLD_FREE_FALL 2000` en `include/app/config.h`:
+  1. **Mayor Sensibilidad:** El algoritmo detecta con notable anticipación y facilidad la fase de desbalance e ingravidez corporal, capturando caídas más suaves, amortiguadas o con componentes angulares/rotacionales.
+  2. **Reducción Drástica de Falsos Negativos:** En la batería de capturas con datos reales, caídas que antes eran descartadas por escaso margen ahora activan oportunamente la bandera de caída libre.
+  3. **Preservación de la Especificidad:** Elevar este umbral no genera falsos positivos, debido a que la arquitectura exige que en la misma ventana de 6 segundos se supere indefectiblemente el umbral de impacto (`THRESHOLD_IMPACT = 7000`). Movimientos cotidianos de baja aceleración (ej. descansar el brazo o sentarse) no desarrollan la energía de colisión necesaria para consolidar la alarma.
+
+---
+
+## 10. Decisiones Arquitectónicas: Tareas Cíclicas y Manejo de Interrupciones
+
+### 10.1 Filosofía de Creación de Tareas (Overhead vs. Aislamiento)
 
 Al decidir cómo manejar eventos cíclicos (ping al PMIC, Keep Alive, reporte de Métricas), se evaluó el balance entre el "overhead" de memoria y el aislamiento de fallos:
 
-* **Aislamiento y Prioridad (Por qué crear PmicTask):** El ping al PMIC es una operación crítica a nivel de hardware. Si el PMIC no recibe un ping I2C en 50s, corta la energía de la placa. Se asignó esta responsabilidad a una tarea exclusiva (PmicTask) que simplemente hace sleep_for(40000) y envía el ping. Al aislarla, nos aseguramos de que ningún bug o retraso en otras tareas (ej. procesar sensores) provoque un reinicio de la pulsera.
-* **Consumo de RAM (Por qué NO crear más tareas):** Cada tarea nueva en Mbed OS consume ~1KB de RAM para su Stack. Dado que el MCU nRF52832 cuenta con sólo 64KB de RAM (y que tecnologías pendientes como BLE o LittleFS requerirán gran parte de ella), crear una tarea dedicada para cada acción cíclica menor (ej. un task_keepalive, un task_bateria) no es escalable ni viable.
-* **La Solución Híbrida:** Todo evento no crítico, de baja prioridad o ligado a la interfaz de usuario / telemetría se agrupó bajo NotifyTelemetryTask. Esta tarea no genera eventos por su cuenta; se limita a reaccionar a la cola de mensajes para leer estado (Batería, Repositorios) y enviarlo a CommLinkTask.
+* **Aislamiento y Prioridad (Por qué crear PmicTask):** El ping al PMIC es una operación crítica a nivel de hardware. Si el PMIC no recibe un ping I2C en 50s, corta la energía de la placa. Se asignó esta responsabilidad a una tarea exclusiva (`PmicTask`) que simplemente hace `sleep_for(40000)` y envía el ping. Al aislarla, nos aseguramos de que ningún bug o retraso en otras tareas (ej. procesar sensores) provoque un reinicio de la pulsera.
+* **Consumo de RAM (Por qué NO crear más tareas):** Cada tarea nueva en Mbed OS consume ~1KB de RAM para su Stack. Dado que el MCU nRF52832 cuenta con sólo 64KB de RAM (y que tecnologías pendientes como BLE o LittleFS requerirán gran parte de ella), crear una tarea dedicada para cada acción cíclica menor (ej. un `task_keepalive`, un `task_bateria`) no es escalable ni viable.
+* **La Solución Híbrida:** Todo evento no crítico, de baja prioridad o ligado a la interfaz de usuario / telemetría se agrupó bajo `NotifyTelemetryTask`. Esta tarea no genera eventos por su cuenta; se limita a reaccionar a la cola de mensajes para leer estado (Batería, Repositorios) y enviarlo a `CommLinkTask`.
 
-### 2. Patrón "Central Dispatcher" (Orquestación en SystemTask)
+### 10.2 Patrón "Central Dispatcher" (Orquestación en SystemTask)
 
-Para evitar que NotifyTelemetryTask o CommLinkTask calcularan sus propios timeouts dinámicamente o llevaran lógica de scheduling, implementamos un esquema donde SystemTask es el único orquestador de los eventos asincrónicos o basados en tiempo.
+Para evitar que `NotifyTelemetryTask` o `CommLinkTask` calcularan sus propios timeouts dinámicamente o llevaran lógica de scheduling, implementamos un esquema donde `SystemTask` es el único orquestador de los eventos asincrónicos o basados en tiempo.
 
-* **Implementación con mbed::Ticker:** Se instanciaron Timers de Hardware directamente dentro de la clase SystemTask (ej. _keepAliveTicker y _metricsTicker).
+* **Implementación con mbed::Ticker:** Se instanciaron Timers de Hardware directamente dentro de la clase `SystemTask` (ej. `_keepAliveTicker` y `_metricsTicker`).
 * **Flujo de Ejecución:**
   1. El temporizador cuenta asincrónicamente usando el hardware del microcontrolador (Cero uso de CPU de la tarea).
   2. Cuando expira, se dispara una interrupción de hardware (ISR), congelando temporalmente el RTOS.
-  3. La ISR, cuyo método "callback" pertenece a SystemTask, envía un mensaje de ejecución *directamente a la cola de la tarea responsable* usando el envoltorio
-     otifyTask. Por ejemplo, envía CMD_TX_KEEP_ALIVE a CommLinkTask.
+  3. La ISR, cuyo método "callback" pertenece a `SystemTask`, envía un mensaje de ejecución *directamente a la cola de la tarea responsable* usando el envoltorio `notifyTask`. Por ejemplo, envía `CMD_TX_KEEP_ALIVE` a `CommLinkTask`.
   4. La ISR termina inmediatamente. El Scheduler de Mbed OS detecta el mensaje nuevo y despierta a la tarea correspondiente para que lo procese en "background" con prioridad baja.
 * **Beneficios de este Modelo:**
-  * **Stateless:** Tareas como NotifyTelemetryTask quedan libres de variables de tiempo. Su bucle
-    un() es un simple, pasivo y eficiente _mailbox.receive(osWaitForever).
-  * **Control Centralizado:** SystemTask tiene la autoridad de apagar o prender los Tickers (mediante ttach() y detach()) dependiendo del estado global de la pulsera. Por ejemplo, si se desconecta el Bluetooth, SystemTask apaga el timer de Keep Alive sin necesidad de enviarle comandos a nadie. El sistema ahorra energía automáticamente.
-  * **Eficiencia (Compromiso Aceptado):** Al hacer que la interrupción envíe el mensaje directo al destino, nos ahorramos un "doble salto" (IRQ -> SystemTask -> CommTask), ganando eficiencia operativa en el RTOS a costa de una brevísima "excepción" a la regla de que SystemTask recibe todo, compensado porque SystemTask es quien gobierna dicho Ticker.
+  * **Stateless:** Tareas como `NotifyTelemetryTask` quedan libres de variables de tiempo. Su bucle `run()` es un simple, pasivo y eficiente `_mailbox.receive(osWaitForever)`.
+  * **Control Centralizado:** `SystemTask` tiene la autoridad de apagar o prender los Tickers (mediante `attach()` y `detach()`) dependiendo del estado global de la pulsera. Por ejemplo, si se desconecta el enlace, `SystemTask` apaga el timer de Keep Alive sin necesidad de enviarle comandos a nadie. El sistema ahorra energía automáticamente.
+  * **Eficiencia (Compromiso Aceptado):** Al hacer que la interrupción envíe el mensaje directo al destino, nos ahorramos un "doble salto" (IRQ -> `SystemTask` -> `CommTask`), ganando eficiencia operativa en el RTOS a costa de una brevísima "excepción" a la regla de que `SystemTask` recibe todo, compensado porque `SystemTask` es quien gobierna dicho Ticker.
 
-### 3. Encapsulamiento de Datos y Claridad Semántica
+### 10.3 Encapsulamiento de Datos y Claridad Semántica
 
-Se aplicó el principio de responsabilidad única para el pasaje de estructuras complejas a través de colas de mensajes (ej. MetricsData).
+Se aplicó el principio de responsabilidad única para el pasaje de estructuras complejas a través de colas de mensajes (ej. `MetricsData`).
 
-* En lugar de procesar los datos directamente al instanciar el envío, se crearon métodos descriptivos como updateMetrics() que solo se encargan de vaciar el StepCounterRepository y actualizar el modelo interno de la clase.
-* Posteriormente, en el bloque Switch de la tarea, se toma la dirección de memoria de ese modelo estático (&_shared_metrics_data) y se envía explícitamente hacia el bus de comunicaciones de CommLinkTask. Esto garantiza trazabilidad: cualquier desarrollador puede ver exactamente qué variable está viajando en el paquete sin tener que adentrarse en implementaciones ocultas.
+* En lugar de procesar los datos directamente al instanciar el envío, se crearon métodos descriptivos como `updateMetrics()` que solo se encargan de vaciar el `StepCounterRepository` y actualizar el modelo interno de la clase.
+* Posteriormente, en el bloque Switch de la tarea, se toma la dirección de memoria de ese modelo estático (`&_shared_metrics_data`) y se envía explícitamente hacia el bus de comunicaciones de `CommLinkTask`. Esto garantiza trazabilidad: cualquier desarrollador puede ver exactamente qué variable está viajando en el paquete sin tener que adentrarse en implementaciones ocultas.
+
+---
+
+## 11. Concurrencia, Thread-Safety y Mecanismo de Locks en Repositorios (ImuRepository y PressureRepository)
+
+### 11.1 Problemática de Concurrencia: Productor vs. Consumidor en RTOS
+
+En el firmware, `ImuRepository` y `PressureRepository` son recursos compartidos entre múltiples hilos del sistema operativo en tiempo real (Mbed OS / RTX5):
+
+* **Hilo Productor (`AlarmsEventsTask`):** Se encarga de drenar la FIFO de hardware del BHI260AP (`updateFifoData()`) y procesar los paquetes de los sensores a través de callbacks, ejecutando continuamente llamadas a `push(nueva_muestra)`.
+* **Hilo Consumidor (`CommLinkTask`):** Al producirse una alarma de caída (`CMD_TX_FALL_SENSORS`, `CMD_TX_IMU_BUFFER` o `CMD_TX_PRESSURE_BUFFER`), debe serializar y transmitir el historial completo de muestras contiguas (ej. hasta 800 muestras = 4800 bytes en el caso de la IMU) a través del enlace de comunicación físico (`comm->sendPayload()`).
+
+La transmisión física de tramas de varios kilobytes a través de UART/USB o BLE toma un tiempo finito no despreciable (decenas de milisegundos).
+
+### 11.2 La Condición de Carrera con Exclusión Mutua Granular Estándar
+
+Originalmente, los métodos individuales de los repositorios contaban con su propio Mutex interno de ámbito local (`rtos::ScopedMutexLock lock(_mutex);`). 
+
+Si `CommLinkTask` operaba con el flujo clásico desacoplado:
+```cpp
+// PELIGRO: Condición de carrera clásica
+const DataXYZ* buf = imu->getLinearBuffer(&count); // Mutex adquirido y LIBERADO dentro del método
+comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)buf, count * sizeof(DataXYZ)); // Mutex LIBRE durante la transmisión I/O
+imu->fifoFlush(); // Mutex adquirido y LIBERADO dentro del método
+```
+
+Este diseño introducía una **condición de carrera crítica (Race Condition)**:
+1. Al salir de `getLinearBuffer()`, el Mutex interno se libera.
+2. Mientras `sendPayload()` está transmitiendo byte a byte por el bus serie (demorando milisegundos), ocurre una interrupción del sensor o el planificador le cede la CPU a `AlarmsEventsTask`.
+3. `AlarmsEventsTask` invoca `setData()` -> `push(muestra)`, modificando los elementos del array `_fifo`, el puntero `_head` y el contador `_count` **mientras `CommLinkTask` está leyendo esa misma memoria física para enviarla**.
+4. Peor aún: cuando `CommLinkTask` finaliza el envío y llama a `imu->fifoFlush()`, resetea `_head = 0`, `_tail = 0`, `_count = 0`. **Esto borra y destruye de forma irreversible todas las muestras nuevas que `AlarmsEventsTask` acababa de escribir durante la transmisión**, generando baches temporales y pérdida de datos en los algoritmos subsiguientes.
+5. Adicionalmente, si el buffer circular requiere rotación en memoria (`std::rotate` / `std::memmove`) para linearizarse, la intervención concurrente de un `push()` corrompe la alineación contigua de memoria, pudiendo provocar hard faults.
+
+### 11.3 Solución: Bloqueo Manual Extendido (`lock()` / `unlock()`) y Primitivas `*Unprotected()`
+
+Para garantizar la integridad total de la trama sin recurrir a duplicación de memoria (evitando buffers estáticos o dinámicos adicionales de 4.8 KB en un microcontrolador con solo 64 KB de RAM), la exclusión mutua debe abarcar **toda la transacción atómica**, protegiendo tanto la linearización, la transmisión física por el bus y el posterior vaciado.
+
+Se implementó el patrón de **Bloqueo Extendido**:
+
+1. **Control Explícito del Mutex:** Se exponen en la interfaz pública de los repositorios los métodos:
+   * `void lock();` (ejecuta `_mutex.lock()`)
+   * `void unlock();` (ejecuta `_mutex.unlock()`)
+2. **Primitivas Desprotegidas (`*Unprotected()`):** Se diseñaron variantes de los métodos de buffer que operan asumiendo que el llamador ya posee la exclusión mutua:
+   * `const DataXYZ* getLinearBufferUnprotected(uint16_t* outCount);`
+   * `void fifoFlushUnprotected();`
+   * `bool popUnprotected(DataXYZ& data);`
+   * `DataXYZ getElementAtUnprotected(uint16_t index) const;`
+   * `uint16_t copyFifoValuesUnprotected(...) const;`
+   * `uint16_t getAvailableCountUnprotected() const;`
+
+#### Patrón Canónico de Transmisión en `CommLinkTask`:
+
+```cpp
+case CMD_TX_FALL_SENSORS: {
+    // --- Bloque Atómico de IMU ---
+    ImuRepository* imu = ImuRepository::getInstance();
+    imu->lock(); // 1. Adquiere el mutex: AlarmsEventsTask se bloquea si intenta escribir
+    uint16_t imuCount = 0;
+    const DataXYZ* imuBuf = imu->getLinearBufferUnprotected(&imuCount); // 2. Lineariza in-place sin re-adquirir mutex
+    if (imuBuf != nullptr && imuCount > 0) {
+        comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)imuBuf, imuCount * sizeof(DataXYZ)); // 3. Envío seguro I/O
+        imu->fifoFlushUnprotected(); // 4. Vacía únicamente lo transmitido
+    }
+    imu->unlock(); // 5. Libera el mutex: AlarmsEventsTask reanuda la escritura en una FIFO limpia
+
+    // --- Bloque Atómico de Presión ---
+    PressureRepository* pres = PressureRepository::getInstance();
+    pres->lock();
+    uint16_t presCount = 0;
+    const float* presBuf = pres->getLinearBufferUnprotected(&presCount);
+    if (presBuf != nullptr && presCount > 0) {
+        comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)presBuf, presCount * sizeof(float));
+        pres->fifoFlushUnprotected();
+    }
+    pres->unlock();
+
+    // Envío de temperatura
+    float temp = TemperatureRepository::getInstance()->getTemp();
+    comm->sendPayload(MSG_TEMPERATURE, (const uint8_t*)&temp, sizeof(float));
+    break;
+}
+```
+
+### 11.4 Reglas de Buenas Prácticas para Desarrolladores
+
+Al extender o interactuar con clases tipo Repositorio (`ImuRepository`, `PressureRepository`, etc.):
+
+1. **Operaciones Puntuales / Transaccionales Cortas:**
+   Si una tarea solo necesita consultar o insertar un dato aislado (ej. `push()`, `pop()`, `getElementAt()`, `isFull()`), debe utilizar **siempre la versión estándar protegida**. Éstas garantizan protección automática vía RAII (`rtos::ScopedMutexLock`) sin riesgo de olvidos de liberación.
+2. **Operaciones Compuestas o Envíos Masivos (I/O):**
+   Si se realiza una secuencia de lectura contigua seguida de un vaciado (`getLinearBuffer` + `sendPayload` + `fifoFlush`), **es obligatorio** envolver la secuencia completa entre `repo->lock()` y `repo->unlock()`, llamando exclusivamente a los métodos `*Unprotected()` dentro del bloque crítico.
+3. **Prohibido Anidar Métodos Protegidos dentro de un `lock()` Manual:**
+   Nunca debe llamarse a un método protegido estándar (ej. `fifoFlush()`) después de haber ejecutado `repo->lock()`. En Mbed OS / RTX5, si el Mutex no está configurado como recursivo, esto provocará un **Deadlock (bloqueo mutuo permanente)** inmediato de la tarea.
+4. **Minimizar el Tiempo de Retención del Mutex:**
+   El envío a través de `sendPayload()` dentro del bloque de lock detiene temporalmente la absorción de muestras en `AlarmsEventsTask`. La tasa de baudios de UART y la eficiencia de la interfaz deben ser lo suficientemente altas para que la transmisión concluya antes de que la FIFO de hardware del BHI260AP (~14 KB) se desborde.

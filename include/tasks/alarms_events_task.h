@@ -12,7 +12,7 @@ class AlarmsEventsTask {
     friend class SystemTask;
 
 private:
-    // Constructor privado (Patron Singleton)
+    // TODO: Monitorear stack con _thread.max_stack(); verificar si 1280 B es suficiente (evaluateWindow asigna 600 B en stack)
     AlarmsEventsTask() : _thread(osPriorityNormal, STACK_SIZE_ALARMS_EVENTS_TASK) {}
     ~AlarmsEventsTask() {}
 
@@ -34,14 +34,14 @@ protected:
     bool sendMsg(AppMessage* msg);
 
     template <typename TargetTask>
-    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_ALARMS_EVENTS, MsgPriority priority = PRIORITY_NORMAL) {
+    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_ALARMS_EVENTS, MsgPriority priority = PRIORITY_NORMAL, uint32_t flags = 0, void* payload_ptr = nullptr, uint16_t payload_len = 0) {
         AppMessage msg;
         msg.event_id = event_id;
         msg.emisor_id = emisor_id;
         msg.priority_level = priority;
-        msg.flags = 0;
-        msg.payload_ptr = nullptr;
-        msg.payload_len = 0;
+        msg.flags = flags;
+        msg.payload_ptr = payload_ptr;
+        msg.payload_len = payload_len;
         msg.timestamp = (uint32_t)rtos::Kernel::Clock::now().time_since_epoch().count();
         TargetTask::getInstance().sendMsg(&msg);
     }
@@ -69,8 +69,8 @@ protected:
     // Funcion auxiliar para evaluar la ventana
     uint8_t evaluateWindow(DataXYZ* buffer, uint16_t len);
     
-    // Funcion de procesamiento
-    void processImuWindow(bool process_preFall);
+    // Funcion de procesamiento (retorna true si hubo caida)
+    bool processImuWindow(bool process_preFall);
 
 public:
     static AlarmsEventsTask& getInstance() {

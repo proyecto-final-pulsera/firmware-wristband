@@ -81,6 +81,11 @@ void SystemTask::run() {
                 case BHI_UPDATED:
                     _flag_bhi_updated = true;
                     break;
+                case EVT_TX_DELAYED:
+                    _flag_process_full_buffer = true;
+                    _delayed_tx_count++;
+                    DEBUG_PRINTLN("[SystemTask] Recibido EVT_TX_DELAYED: Proximo procesamiento evaluara buffer completo");
+                    break;
             }
         }
 
@@ -132,6 +137,7 @@ void SystemTask::updateBhiMde() {
             if (_flag_bhi_updated) {
                 DEBUG_PRINTLN("[BHI_MDE] Enviando WAKEUP_PROCESS -> MONITORING_FALL");
                 notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU_WAKEUP);
+                _flag_process_full_buffer = false;
                 _bhi_mde_state = BHI_MDE_MONITORING_FALL;
             }
             break;
@@ -155,7 +161,17 @@ void SystemTask::updateBhiMde() {
                     _bhi_disconnect_counter = 0;
                     _bhi_mde_state = BHI_MDE_DISCONNECTING_WAIT_IRQ;
                 } else {
-                    notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
+                    // Si CommLinkTask demoró en transmitir más tiempo que la ventana de impacto
+                    // (IMPACT_WINDOW_SIZE / FREQ_IMU), la FIFO acumuló muestras durante la espera.
+                    // Para no omitir eventos ocurridos al inicio del buffer durante ese retardo,
+                    // se despacha CMD_PROCESS_IMU_WAKEUP (evalúa ventana inicial + central) en vez de solo la central.
+                    if (_flag_process_full_buffer) {
+                        DEBUG_PRINTLN("[BHI_MDE] Procesando buffer completo debido a retardo en TX");
+                        notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU_WAKEUP);
+                        _flag_process_full_buffer = false;
+                    } else {
+                        notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
+                    }
                     _bhi_mde_state = BHI_MDE_MONITORING_FALL;
                 }
             }
@@ -170,8 +186,15 @@ void SystemTask::updateBhiMde() {
 
         case BHI_MDE_DISCONNECTING_WAIT_UPDATE:
             if (_flag_bhi_updated) {
-                // Validar siempre si hubo caida durante la desconexion
-                notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
+                // Validar siempre si hubo caída durante la desconexión. Si hubo retardo en TX previo,
+                // se procesa el buffer completo (pre-fall + central) para no perder eventos rezagados.
+                if (_flag_process_full_buffer) {
+                    DEBUG_PRINTLN("[BHI_MDE] Procesando buffer completo en desconexion debido a retardo en TX");
+                    notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU_WAKEUP);
+                    _flag_process_full_buffer = false;
+                } else {
+                    notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
+                }
                 
                 if (MotionRepository::getInstance()->hasEventOccurred()) {
                     DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado! Abortando desconexion -> MONITORING_FALL");
@@ -209,7 +232,9 @@ void SystemTask::updateButtonsMde() {
         if (panicBtn->getPressed()) {
             DEBUG_PRINTLN("[SystemTask] PANIC BUTTON - Flanco Detectado!");
             notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_VIBRATOR_INTERMITTENT, TASK_SYSTEM, PRIORITY_NORMAL, VIB_DURATION_4S);
-            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_PANIC_BTN_PRESS);
+            // TODO notificar boton Presionado y no envio de sensores. Nota Quiza es una buena idea pasar los datos para procesarlos.
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
         }
 
         if (panicBtn->isIdle()) {
@@ -225,7 +250,8 @@ void SystemTask::updateButtonsMde() {
         if (notifBtn->getPressed()) {
             DEBUG_PRINTLN("[SystemTask] NOTIF BUTTON - Flanco Detectado!");
             notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_VIBRATOR_CONTINUOUS, TASK_SYSTEM, PRIORITY_NORMAL, VIB_DURATION_2S);
-            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_NOTIF_BTN_PRESS, TASK_SYSTEM, PRIORITY_NORMAL);
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
         }
 
         if (notifBtn->isIdle()) {

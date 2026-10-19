@@ -42,7 +42,7 @@ def calculate_crc8(data: bytes, initial_crc: int = 0x00) -> int:
     return crc
 
 def main():
-    port = "COM5"
+    port = "COM6"
     baud = 115200
 
     # Inicializar Puerto Serie
@@ -63,6 +63,17 @@ def main():
     press_data = []
     total_steps = 0  # Contador acumulativo de pasos
 
+    def read_exact(n, timeout=2.5):
+        start = time.time()
+        buf = bytearray()
+        while len(buf) < n:
+            chunk = ser.read(n - len(buf))
+            if chunk:
+                buf.extend(chunk)
+            elif (time.time() - start) > timeout:
+                break
+        return bytes(buf)
+
     try:
         while True:
             # 1. Esperamos pacientemente el byte de sincronismo
@@ -72,12 +83,12 @@ def main():
                 
             if b[0] == START_BYTE:
                 # 2. ¡Atrapamos un posible inicio de trama! Leemos el Header [TYPE][LEN_L][LEN_H]
-                header = ser.read(3) 
+                header = read_exact(3, timeout=0.5) 
                 if len(header) < 3:
                     continue
                 
                 # Leemos el CRC del Header
-                header_crc_raw = ser.read(1)
+                header_crc_raw = read_exact(1, timeout=0.2)
                 if not header_crc_raw:
                     continue
                 header_crc_received = header_crc_raw[0]
@@ -88,11 +99,6 @@ def main():
                 
                 if calc_h_crc != header_crc_received:
                     print(f"[ERROR] Header alterado. CRC recibido: {header_crc_received:02X}, calculado: {calc_h_crc:02X}. Ignorando.")
-                    # Vaciamos el buffer del puerto serie. 
-                    # Como no sabemos el 'len' real (el header está corrupto), no podemos 
-                    # saltear el payload de forma exacta. Vaciar el buffer evita que leamos 
-                    # el payload residual como si fuera basura, previniendo que Python se trabe.
-                    ser.reset_input_buffer()
                     continue
                 
                 msg_type = header[0]
@@ -103,17 +109,15 @@ def main():
                 # 3. Leemos el Payload completo (si lo hay)
                 payload = b''
                 if msg_len > 0:
-                    payload = ser.read(msg_len)
+                    payload = read_exact(msg_len, timeout=2.5)
                     if len(payload) < msg_len:
-                        print("[WARNING] Trama incompleta o corrompida perdida.")
-                        ser.reset_input_buffer()
+                        print(f"[WARNING] Trama incompleta perdida: esperado {msg_len}, recibido {len(payload)}.")
                         continue
                     
                     # 4. Leemos el CRC del Payload
-                    p_crc_raw = ser.read(1)
+                    p_crc_raw = read_exact(1, timeout=0.5)
                     if not p_crc_raw:
                         print("[WARNING] Trama sin Payload CRC.")
-                        ser.reset_input_buffer()
                         continue
                     p_crc_received = p_crc_raw[0]
                     
@@ -121,7 +125,6 @@ def main():
                     calc_p_crc = calculate_crc8(payload)
                     if calc_p_crc != p_crc_received:
                         print(f"[ERROR] Payload alterado. CRC recibido: {p_crc_received:02X}, calculado: {calc_p_crc:02X}. Ignorando trama.")
-                        ser.reset_input_buffer()
                         continue
                 
                 # 6. Parseamos dependiendo del Tipo de Mensaje

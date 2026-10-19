@@ -33,7 +33,7 @@ private:
     void run();
 
 protected:
-    bool sendMsg(AppMessage* msg);
+    
 
     template <typename TargetTask>
     void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_COMM_LINK, MsgPriority priority = PRIORITY_NORMAL) {
@@ -49,6 +49,7 @@ protected:
     }
 
 public:
+    bool sendMsg(AppMessage* msg);      
     // Comandos y eventos exclusivos de esta tarea (que mapean a lo que enviaremos)
     enum EventId : uint8_t {
         CMD_TX_IMU_BUFFER      = 0x01,

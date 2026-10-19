@@ -4,6 +4,8 @@
 #include "repositories/temperature_repository.h"
 #include "repositories/event_repository.h"
 #include "drivers/ble_driver.h"
+#include "tasks/system_task.h"
+#include "utils/debug.h"
 
 void CommLinkTask::init() {
     // Iniciar el hilo asociado al metodo run de esta instancia
@@ -16,43 +18,60 @@ bool CommLinkTask::sendMsg(AppMessage* msg) {
 
 void CommLinkTask::run() {
     AppMessage msg;
-    BleDriver* comm = BleDriver::getInstance();
+    // TODO usar unicamente uno.
+    BleDriver* comm2 = BleDriver::getInstance();
+    SerialCommDriver* comm = SerialCommDriver::getInstance();
 
     while (true) {
         if (_comm_link_task_queue.receive(&msg)) {
+            uint32_t t_start_ms = millis();
+            
             switch (msg.event_id) {
+                
                 case CMD_TX_IMU_BUFFER: {
+                    ImuRepository* imu = ImuRepository::getInstance();
+                    imu->lock();
                     uint16_t count = 0;
-                    const DataXYZ* buf = ImuRepository::getInstance()->getLinearBuffer(&count);
+                    const DataXYZ* buf = imu->getLinearBufferUnprotected(&count);
                     if (buf != nullptr && count > 0) {
                         comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)buf, count * sizeof(DataXYZ));
-                        ImuRepository::getInstance()->fifoFlush();
+                        imu->fifoFlushUnprotected();
                     }
+                    imu->unlock();
                     break;
                 }
                 case CMD_TX_PRESSURE_BUFFER: {
+                    PressureRepository* pres = PressureRepository::getInstance();
+                    pres->lock();
                     uint16_t count = 0;
-                    const float* buf = PressureRepository::getInstance()->getLinearBuffer(&count);
+                    const float* buf = pres->getLinearBufferUnprotected(&count);
                     if (buf != nullptr && count > 0) {
                         comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)buf, count * sizeof(float));
-                        PressureRepository::getInstance()->fifoFlush();
+                        pres->fifoFlushUnprotected();
                     }
+                    pres->unlock();
                     break;
                 }
                 case CMD_TX_FALL_SENSORS: {
+                    ImuRepository* imu = ImuRepository::getInstance();
+                    imu->lock();
                     uint16_t imuCount = 0;
-                    const DataXYZ* imuBuf = ImuRepository::getInstance()->getLinearBuffer(&imuCount);
+                    const DataXYZ* imuBuf = imu->getLinearBufferUnprotected(&imuCount);
                     if (imuBuf != nullptr && imuCount > 0) {
                         comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)imuBuf, imuCount * sizeof(DataXYZ));
-                        ImuRepository::getInstance()->fifoFlush();
+                        imu->fifoFlushUnprotected();
                     }
+                    imu->unlock();
 
+                    PressureRepository* pres = PressureRepository::getInstance();
+                    pres->lock();
                     uint16_t presCount = 0;
-                    const float* presBuf = PressureRepository::getInstance()->getLinearBuffer(&presCount);
+                    const float* presBuf = pres->getLinearBufferUnprotected(&presCount);
                     if (presBuf != nullptr && presCount > 0) {
                         comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)presBuf, presCount * sizeof(float));
-                        PressureRepository::getInstance()->fifoFlush();
+                        pres->fifoFlushUnprotected();
                     }
+                    pres->unlock();
 
                     float temp = TemperatureRepository::getInstance()->getTemp();
                     comm->sendPayload(MSG_TEMPERATURE, (const uint8_t*)&temp, sizeof(float));
@@ -101,6 +120,15 @@ void CommLinkTask::run() {
                 }
                 default:
                     break;
+            }
+
+            // Validar si el envío demoró más que la ventana de impacto (en segundos)
+            float elapsed_sec = (millis() - t_start_ms) / 1000.0f;
+            float threshold_sec = (float)IMPACT_WINDOW_SIZE / (float)FREQ_IMU;
+            if (elapsed_sec > threshold_sec) {
+                DEBUG_PRINT("[CommLinkTask] ALERTA: Envio demorado! Tiempo (s): "); DEBUG_PRINT(elapsed_sec);
+                DEBUG_PRINT(" > Umbral (s): "); DEBUG_PRINTLN(threshold_sec);
+                notifyTask<SystemTask>(SystemTask::EVT_TX_DELAYED);
             }
         }
     }

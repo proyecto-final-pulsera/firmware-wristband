@@ -41,8 +41,20 @@ String ImuRepository::toString() {
     return _lastData.toString();
 }
 
+void ImuRepository::lock() {
+    _mutex.lock();
+}
+
+void ImuRepository::unlock() {
+    _mutex.unlock();
+}
+
 void ImuRepository::fifoFlush() {
     rtos::ScopedMutexLock lock(_mutex);
+    fifoFlushUnprotected();
+}
+
+void ImuRepository::fifoFlushUnprotected() {
     _head = 0;
     _tail = 0;
     _count = 0;
@@ -52,6 +64,7 @@ void ImuRepository::fifoFlush() {
 }
 
 bool ImuRepository::push(const DataXYZ& data) {
+    rtos::ScopedMutexLock lock(_mutex);
     bool overwritten = false;
     
     _totalPushed++; // Contamos estadísticamente cuántos ingresaron
@@ -72,6 +85,11 @@ bool ImuRepository::push(const DataXYZ& data) {
 }
 
 bool ImuRepository::pop(DataXYZ& data) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return popUnprotected(data);
+}
+
+bool ImuRepository::popUnprotected(DataXYZ& data) {
     if (_count == 0) {
         return false; // FIFO vacía
     }
@@ -84,22 +102,31 @@ bool ImuRepository::pop(DataXYZ& data) {
 }
 
 uint16_t ImuRepository::getAvailableCount() const {
+    rtos::ScopedMutexLock lock(_mutex);
+    return _count;
+}
+
+uint16_t ImuRepository::getAvailableCountUnprotected() const {
     return _count;
 }
 
 bool ImuRepository::isFull() const {
+    rtos::ScopedMutexLock lock(_mutex);
     return _count == IMU_FIFO_SIZE;
 }
 
 bool ImuRepository::hasOverflowed() const {
+    rtos::ScopedMutexLock lock(_mutex);
     return _overflow;
 }
 
 void ImuRepository::clearOverflow() {
+    rtos::ScopedMutexLock lock(_mutex);
     _overflow = false;
 }
 
 uint16_t ImuRepository::rewind(uint16_t steps) {
+    rtos::ScopedMutexLock lock(_mutex);
     // Calculamos el historial máximo físicamente presente en la memoria
     uint32_t totalValid = (_totalPushed < IMU_FIFO_SIZE) ? _totalPushed : IMU_FIFO_SIZE;
     uint16_t maxRewind = totalValid - _count;
@@ -134,7 +161,7 @@ uint16_t ImuRepository::getFifoValues(DataXYZ* buffer, uint16_t maxLen) {
     
     // Sacamos datos hasta vaciar la FIFO o llenar el buffer provisto
     while (_count > 0 && extracted < maxLen) {
-        pop(buffer[extracted]);
+        popUnprotected(buffer[extracted]);
         extracted++;
     }
     
@@ -143,6 +170,10 @@ uint16_t ImuRepository::getFifoValues(DataXYZ* buffer, uint16_t maxLen) {
 
 const DataXYZ* ImuRepository::getLinearBuffer(uint16_t* outCount) {
     rtos::ScopedMutexLock lock(_mutex);
+    return getLinearBufferUnprotected(outCount);
+}
+
+const DataXYZ* ImuRepository::getLinearBufferUnprotected(uint16_t* outCount) {
     if (_count == 0) {
         if (outCount) *outCount = 0;
         return nullptr;

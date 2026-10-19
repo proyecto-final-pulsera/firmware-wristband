@@ -40,7 +40,6 @@ void isr_serial_rx() {
 }
 
 void isr_panic_button() {
-
     if (PanicButton::getInstance()->onInterrupt()) {
         AppMessage msg;
         msg.event_id = SystemTask::CMD_EVALUATE_PANIC_BUTTON;
@@ -50,7 +49,6 @@ void isr_panic_button() {
 }
 
 void isr_notif_button() {
-    
     if (NotifButton::getInstance()->onInterrupt()) {
         AppMessage msg;
         msg.event_id = SystemTask::CMD_EVALUATE_NOTIF_BUTTON;
@@ -59,9 +57,9 @@ void isr_notif_button() {
     }
 }
 
-// void onRxReceived(){
-//     return;
-// }
+void onRxReceived(){
+    return;
+}
 
 // void onRxReceived() {
 //     CommPacket pkt;
@@ -132,6 +130,10 @@ void App::init() {
     // 1. Instanciar e Inicializar Hardware y Drivers Base
     // ------------------------------------------------------------------------
     
+    // Vibrador 
+    VibratorDriver* vibrator = VibratorDriver::getInstance();
+    vibrator->init();
+
     // PMIC (Bateri­a)
     BatteryDriver* battery = BatteryDriver::getInstance();
     battery->init();
@@ -151,13 +153,10 @@ void App::init() {
     NotifButton* notifBtn = NotifButton::getInstance();
     notifBtn->setIrqHandler(isr_notif_button);
 
-    // Vibrador 
-    VibratorDriver* vibrator = VibratorDriver::getInstance();
-    vibrator->init();
 
     // Comunicaciones
-    // SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
-    // serialDriver->init();
+    SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
+    serialDriver->init();
     // BleDriver* bleComm = BleDriver::getInstance();
     // bleComm->init();
 
@@ -170,7 +169,7 @@ void App::init() {
     // ------------------------------------------------------------------------
     bhi260->disableNonWakeupFIFO();
     
-    ImuRepository::getInstance()->begin((float)FREQ_IMU, 3000); // Latencia de 3000ms
+    ImuRepository::getInstance()->begin((float)FREQ_IMU, LATENCIA_IMU);
     PressureRepository::getInstance()->begin((float)FREQ_PRESSURE, (uint32_t)-1);
     TemperatureRepository::getInstance()->begin(1.0f, (uint32_t)-1);
 
@@ -183,7 +182,6 @@ void App::init() {
     // 2. Levantar las Tareas (Threads) del RTOS
     // ------------------------------------------------------------------------
     // Se configuran e inician los hilos.
-    
     
     CommLinkTask::getInstance().init();
     NotifyTelemetryTask::getInstance().init();
@@ -202,5 +200,5 @@ void App::init() {
 
     panicBtn->enableInterrupt();
     notifBtn->enableInterrupt();
-    // serialDriver.enableInterrupt(); 
+    serialDriver->attachRxInterrupt(); 
 }

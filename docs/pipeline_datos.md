@@ -33,10 +33,13 @@ El sistema se divide en tres Tareas (Threads) principales y una sub-rutina de in
 
 ## 2. Control de Concurrencia y Cuellos de Botella
 
-* **Alcance de los Drivers:** Como las clases de los sensores (`ImuSensorDriver`, etc.) no son Singletons puros, se deben instanciar de forma **global** o en el `main` y pasar sus punteros/referencias a las tareas del RTOS. Si cada tarea instancia su propia clase, tendrán buffers de memoria aislados y el sistema no funcionará.
-* **Seguridad de Memoria (Thread-Safety):** La *System Task* (Productor) y la *Processing Task* (Consumidor) tocan el mismo buffer circular. Es obligatorio envolver los métodos del buffer en un Mutex (`osMutexAcquire`/`Release`) o Critical Section para evitar la corrupción de los índices lógicos.
+* **Alcance de los Drivers y Repositorios:** Los repositorios de datos (`ImuRepository`, `PressureRepository`, `TemperatureRepository`) implementan el patrón Singleton para garantizar una única instancia coherente accesible por todas las tareas.
+* **Seguridad de Memoria (Thread-Safety) y Locks Extendidos:**
+  * Al escribir, las callbacks del driver invocan `push()`, el cual adquiere un `rtos::ScopedMutexLock lock(_mutex)` de manera atómica y breve para insertar la muestra.
+  * Al transmitir, `CommLinkTask` debe linearizar y enviar hasta 4.8 KB de datos por bus serie y luego vaciar la FIFO. Para evitar que `AlarmsEventsTask` escriba muestras nuevas en medio de la transmisión física y que luego sean borradas por el `flush`, se implementó el patrón de **bloqueo extendido**: la tarea de comunicaciones adquiere el cerrojo explícito con `repo->lock()`, utiliza métodos desprotegidos (`getLinearBufferUnprotected()`, `fifoFlushUnprotected()`) para linearizar, enviar por UART y limpiar, y finalmente libera con `repo->unlock()`.
+* **Sensibilidad de Detección (THRESHOLD_FREE_FALL = 2000):** La ventana de análisis algorítmica evalúa la fase de caída libre usando el umbral calibrado en 2000 (en vez de 1500). Esto confiere la sensibilidad necesaria para detectar caídas amortiguadas o con rotación sin comprometer la especificidad, reduciendo drásticamente los falsos negativos.
 * **Sobreescritura Justificada:** Si el hardware satura el tamaño máximo del buffer de software (ej. 800 muestras), los datos más viejos se pisan. Esto es por diseño: el buffer solo existe para retener el historial reciente (ej. los últimos 16 segundos). Los datos más viejos pierden relevancia para la telemetría de una caída actual.
-* **Backpressure:** La latencia configurada en el sensor (ej. `LATENCIA_DATOS_ACCELEROMETRO`) dicta el ritmo de los lotes. El algoritmo matemático de la *Processing Task* debe estar altamente optimizado para finalizar su análisis antes de que venza la próxima latencia del hardware; de lo contrario, el RTOS formará un cuello de botella y el hardware FIFO se desbordará.
+* **Backpressure:** La latencia configurada en el sensor (ej. `LATENCIA_IMU`) dicta el ritmo de los lotes. El algoritmo matemático de la *Processing Task* está altamente optimizado (usando aproximación entera Alpha Max Plus Beta Min en ~800 us) para finalizar su análisis mucho antes de que venza la próxima latencia del hardware (~3000 ms), evitando cuellos de botella en la FIFO de hardware.
 
 ## 3. Esquema de Buffer con Retraso Intencional (Delayed Sliding Window)
 

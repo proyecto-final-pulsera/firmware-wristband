@@ -53,12 +53,20 @@ public:
     float getElementAt(uint16_t index);
     float getElementAtUnprotected(uint16_t index) const;
 
+    void lock();
+    void unlock();
+
+    void fifoFlushUnprotected();
+    const float* getLinearBufferUnprotected(uint16_t* outCount);
+    bool popUnprotected(float& data);
+    uint16_t getAvailableCountUnprotected() const;
+
     // --- Métodos temporales de Test ---
     uint32_t getTotalPushed() const;
     void resetTotalPushed();
 
 private:
-    rtos::Mutex _mutex;
+    mutable rtos::Mutex _mutex;
     float _fifo[PRESSURE_FIFO_SIZE];
     uint16_t _head;
     uint16_t _tail;

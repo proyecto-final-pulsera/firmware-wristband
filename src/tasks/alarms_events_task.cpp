@@ -67,17 +67,26 @@ void AlarmsEventsTask::run() {
             unsigned long t_start = micros();
 
             switch (msg.event_id) {
-                case CMD_PROCESS_IMU:
-                    processImuWindow(false);
+                case CMD_PROCESS_IMU: {
+                    bool fall = processImuWindow(false);
                     DEBUG_PRINT("[AlarmsEventsTask] Tiempo process (us): "); DEBUG_PRINTLN(micros() - t_start);
-                    
+                    if (fall) {
+                        DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
+                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, 0);
+                    }
                     break;
-                case CMD_PROCESS_IMU_WAKEUP:
-                    
-                    processImuWindow(true);
+                }
+                case CMD_PROCESS_IMU_WAKEUP: {
+                    bool fall = processImuWindow(true);
                     DEBUG_PRINT("[AlarmsEventsTask] Tiempo process Wakeup (us): "); DEBUG_PRINTLN(micros() - t_start);
-                    
+                    if (fall) {
+                        DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO (WAKEUP) ***");
+                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, PRE_FALL_PROCESSED_FLAG);
+                    }
                     break;
+                }
                 case CMD_STOP_PROCESS:
                     // Actualmente no tiene efecto en procesamiento on-demand
                     break;
@@ -148,12 +157,11 @@ DEBUG_PRINT("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: "); DEBUG_PRINTLN(p
     return flags;
 }
 
-void AlarmsEventsTask::processImuWindow(bool process_preFall) {
-
+bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
     ImuRepository* imu = ImuRepository::getInstance();
     
     if (imu->getAvailableCount() < IMU_FIFO_SIZE) {
-        return; 
+        return false; 
     }
 
     uint8_t fall_flags = 0;
@@ -174,16 +182,6 @@ void AlarmsEventsTask::processImuWindow(bool process_preFall) {
         }
     }
 
-    if (fall_flags != 0 && fall_flags == FLAG_FALL_DETECTED) {
-DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
-        
-        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
-
-        AppMessage alarmMsg;
-        alarmMsg.event_id = CommLinkTask::CMD_TX_ALARM;
-        alarmMsg.emisor_id = TASK_ALARMS_EVENTS;
-        // Dependiendo si se activó el procesamiento del pre-fall, enviamos el flag
-        alarmMsg.flags = process_preFall ? PRE_FALL_PROCESSED_FLAG : 0;
-        CommLinkTask::getInstance().sendMsg(&alarmMsg);
-    }
+    return (fall_flags == FLAG_FALL_DETECTED);
 }
+
