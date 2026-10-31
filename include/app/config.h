@@ -33,10 +33,10 @@
 #define SLIDING_WINDOW_SIZE (1 << SLIDING_WINDOW_SHIFT) // 2^3 = 8
 
 // Valor umbral maximo a partir del cual se consigera que hubo caida libre.
-#define THRESHOLD_FREE_FALL 2000 //1500  // Valor provisorio
+#define THRESHOLD_FREE_FALL 2300 // 2000 //1500  // Valor provisorio
 
 // Valor umbral minimo a partir del cual se considera que hubo un impacto.
-#define THRESHOLD_IMPACT 7000     // Valor provisorio
+#define THRESHOLD_IMPACT 6500 // 7000     // Valor provisorio
 
 // numero de veces que se procesa el buffer recibido de IMU luego de recibir un evento de "No caida".
 #define NUM_PROCESS_POST_NOMOTION 10

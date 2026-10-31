@@ -5,10 +5,11 @@ import datetime
 import struct
 import csv
 import json
+import re
 import serial
 import serial.tools.list_ports
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, TextBox
 
 # =============================================================================
 # CONSTANTES DEL PROTOCOLO BINARIO
@@ -98,8 +99,8 @@ def ask_config_gui():
 
         # 1. Tipo de evento a grabar
         ttk.Label(frame, text="¿Qué tipo de evento vas a grabar?", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
-        ttk.Radiobutton(frame, text="Caídas (Nombre: 'Caida_HHmmSS.json')", variable=selected_mode, value="Caida").pack(anchor=tk.W, padx=10, pady=2)
-        ttk.Radiobutton(frame, text="Eventos normales (Nombre: 'NoCaida_HHmmSS.json')", variable=selected_mode, value="NoCaida").pack(anchor=tk.W, padx=10, pady=2)
+        ttk.Radiobutton(frame, text="Caídas (Nombre: 'caida_N.json')", variable=selected_mode, value="Caida").pack(anchor=tk.W, padx=10, pady=2)
+        ttk.Radiobutton(frame, text="Eventos normales (Nombre: 'no_caida_N.json')", variable=selected_mode, value="NoCaida").pack(anchor=tk.W, padx=10, pady=2)
 
         # 2. Selección de Puerto Serie
         ttk.Label(frame, text="Puerto Serie:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(8, 4))
@@ -159,8 +160,8 @@ def ask_config_console(default_dir=None):
     port = user_port if user_port else default_port
 
     print("\n¿Qué tipo de eventos vas a grabar?")
-    print("  [1] Caídas (Prefijo: 'Caida_HHmmSS.json')")
-    print("  [2] Eventos normales / No Caída (Prefijo: 'NoCaida_HHmmSS.json')")
+    print("  [1] Caídas (Prefijo: 'caida_N.json')")
+    print("  [2] Eventos normales / No Caída (Prefijo: 'no_caida_N.json')")
     choice = input("Opción [1]: ").strip()
     mode = "NoCaida" if choice == "2" else "Caida"
 
@@ -173,45 +174,81 @@ def ask_config_console(default_dir=None):
 # =============================================================================
 # GUARDADO DE DATOS EN JSON
 # =============================================================================
-def save_dataset_to_json(data_batch, mode_prefix, output_root="capturas"):
+def get_next_event_number(output_dir, is_fall=True):
     """
-    Guarda todos los datos del lote en un único archivo JSON unificado.
-    Nombre de archivo: {mode_prefix}_{HHmmSS}.json (ej. Caida_143025.json)
-    Contiene:
-      - metadatos (timestamp, tipo de evento, flags de alarma, etc.)
-      - imu: matriz/vector de vectores [[x0, y0, z0], [x1, y1, z1], ...]
-      - pressure: vector de muestras [p0, p1, p2, ...]
-      - temperature_c: float
+    Busca en output_dir los archivos existentes con el formato nuevo
+    (caida_N.json o no_caida_N.json), ignora los archivos viejos con timestamps
+    (ej. Caida_HHmmSS.json), y retorna el número siguiente N.
     """
-    now = datetime.datetime.now()
-    time_str = now.strftime("%H%M%S") # HHmmSS
-    date_str = now.strftime("%Y-%m-%d")
-    filename = f"{mode_prefix}_{time_str}.json"
-    
+    pattern = re.compile(r"^(?:caida|Caida)_(\d+)\.json$" if is_fall else r"^(?:no_?caida|No_?Caida)_(\d+)\.json$")
+    existing_nums = []
+
+    if os.path.exists(output_dir):
+        for fname in os.listdir(output_dir):
+            if not fname.lower().endswith(".json"):
+                continue
+            m = pattern.match(fname)
+            if m:
+                val_str = m.group(1)
+                fpath = os.path.join(output_dir, fname)
+                is_new_format = False
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if "timeseries" in data:
+                            is_new_format = True
+                except Exception:
+                    pass
+
+                if is_new_format:
+                    existing_nums.append(int(val_str))
+                elif len(val_str) != 6:
+                    existing_nums.append(int(val_str))
+
+    return max(existing_nums, default=0) + 1
+
+def save_dataset_to_json(data_batch, mode, output_root="capturas", custom_event=None):
+    """
+    Guarda todos los datos del lote en un único archivo JSON unificado con el formato del template.
+    Nombre de archivo: caida_{N}.json o no_caida_{N}.json
+    """
     os.makedirs(output_root, exist_ok=True)
+    is_fall = (mode.lower() == "caida")
+
+    next_n = get_next_event_number(output_root, is_fall=is_fall)
+    prefix = "caida" if is_fall else "no_caida"
+    default_title = f"{prefix}_{next_n}"
+    event_title = custom_event.strip() if (custom_event and custom_event.strip()) else default_title
+    filename = f"{prefix}_{next_n}.json"
     filepath = os.path.join(output_root, filename)
 
+    now = datetime.datetime.now()
     imu_samples = data_batch.get("imu", [])
     pressure_samples = data_batch.get("pressure", [])
     temp_val = data_batch.get("temperature", None)
-    alarm_id = data_batch.get("alarm_id", None)
 
+    # Construir estructura según template solicitado
     event_data = {
-        "event_id": f"{mode_prefix}_{time_str}",
-        "event_type": mode_prefix,
-        "date": date_str,
-        "time": now.strftime("%H:%M:%S"),
-        "timestamp_iso": now.isoformat(),
-        "temperature_c": round(temp_val, 2) if temp_val is not None else None,
-        "alarm_flags": alarm_id,
-        "total_imu_samples": len(imu_samples),
-        "total_pressure_samples": len(pressure_samples),
-        "imu": [
-            [x, y, z] for (x, y, z) in imu_samples
-        ],
-        "pressure": [
-            round(p, 4) for p in pressure_samples
-        ]
+        "header": {
+            "type": "FALL" if is_fall else "NO_FALL",
+            "event": event_title,
+            "timestamp": int(now.timestamp()),
+            "datetime": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "fs_acel": 50,
+            "fs_press": 16,
+            "din_range_acel": 8
+        },
+        "timeseries": {
+            "accelerometer": {
+                "data_acel_x": [int(x) for (x, y, z) in imu_samples],
+                "data_acel_y": [int(y) for (x, y, z) in imu_samples],
+                "data_acel_z": [int(z) for (x, y, z) in imu_samples]
+            },
+            "altitud": {
+                "temp": round(temp_val, 2) if temp_val is not None else None,
+                "press": [round(p, 4) for p in pressure_samples]
+            }
+        }
     }
 
     with open(filepath, mode="w", encoding="utf-8") as f:
@@ -222,22 +259,24 @@ def save_dataset_to_json(data_batch, mode_prefix, output_root="capturas"):
 def load_event(json_path):
     """
     Función de utilidad para cargar fácilmente un evento guardado.
-    
+
     Ejemplo de uso:
         import numpy as np
         import pandas as pd
         from tools.serial_recorder import load_event
-        
-        data = load_event("tools/capturas/Caida_143025.json")
-        
+
+        data = load_event("tools/capturas/caida_1.json")
+
         # Con NumPy:
-        imu_array = np.array(data["imu"])          # Matriz (N, 3) -> [X, Y, Z]
-        press_array = np.array(data["pressure"])   # Vector (M,)
-        temp = data["temperature_c"]              # Float en °C
-        
+        x = np.array(data["timeseries"]["accelerometer"]["data_acel_x"])
+        y = np.array(data["timeseries"]["accelerometer"]["data_acel_y"])
+        z = np.array(data["timeseries"]["accelerometer"]["data_acel_z"])
+        press = np.array(data["timeseries"]["altitud"]["press"])
+        temp = data["timeseries"]["altitud"]["temp"]
+
         # Con Pandas:
-        df_imu = pd.DataFrame(data["imu"], columns=["x", "y", "z"])
-        df_press = pd.Series(data["pressure"], name="pressure_hpa")
+        df_imu = pd.DataFrame(data["timeseries"]["accelerometer"])
+        df_press = pd.Series(data["timeseries"]["altitud"]["press"], name="press")
     """
     with open(json_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -253,6 +292,7 @@ class SerialRecorderApp:
         self.output_dir = output_dir
 
         self.ser = None
+        self.fig = None
         self.running = True
 
         # Buffers temporales para almacenar la ráfaga de datos de un evento
@@ -268,6 +308,8 @@ class SerialRecorderApp:
         # Datos acumulados para métricas y display
         self.total_saved_events = 0
         self.last_saved_name = "Ninguno"
+        self.saved_history = []           # Pila de rutas a los archivos JSON guardados
+        self.current_custom_event = ""    # Tipo de evento asignado (ej: "Aplaudir")
 
     def set_mode(self, new_mode):
         self.current_mode = new_mode
@@ -275,10 +317,95 @@ class SerialRecorderApp:
         self.update_plot_title()
 
     def update_plot_title(self):
-        color_tag = "🔴 [GRABANDO: CAÍDA]" if self.current_mode == "Caida" else "🟢 [GRABANDO: NO CAÍDA (NORMAL)]"
-        info = f"{color_tag} | Último Guardado: {self.last_saved_name} (Total: {self.total_saved_events})"
-        self.fig.suptitle(f"Grabador de Telemetría - {info}", fontsize=12, fontweight='bold')
+        if not hasattr(self, 'fig') or self.fig is None:
+            return
+        mode_str = "[GRABANDO: CAÍDA]" if self.current_mode == "Caida" else "[GRABANDO: NO CAÍDA]"
+        event_str = f" | Evento: '{self.current_custom_event}'" if self.current_custom_event else ""
+        info = f"{mode_str}{event_str} | Último: {self.last_saved_name} (Total: {self.total_saved_events})"
+        self.fig.suptitle(f"Grabador de Telemetría - {info}", fontsize=11, fontweight='bold')
         self.fig.canvas.draw_idle()
+
+    def discard_last_sample(self):
+        """Descarta y elimina del disco la última muestra grabada."""
+        if not self.saved_history:
+            print("\n[AVISO] No hay ninguna muestra reciente para descartar.")
+            return
+
+        last_filepath = self.saved_history.pop()
+        filename = os.path.basename(last_filepath)
+
+        try:
+            if os.path.exists(last_filepath):
+                os.remove(last_filepath)
+                print("\n" + "=" * 65)
+                print(f" [DESCARTADO] Muestra eliminada correctamente: {filename}")
+                print(f" Archivo eliminado: {last_filepath}")
+                print("=" * 65 + "\n")
+            else:
+                print(f"\n[AVISO] El archivo {filename} ya no existía en disco.")
+
+            if self.total_saved_events > 0:
+                self.total_saved_events -= 1
+
+            if self.saved_history:
+                prev_file = os.path.basename(self.saved_history[-1])
+                self.last_saved_name = prev_file
+            else:
+                self.last_saved_name = "Ninguno (Último descartado)"
+
+            self.update_plot_title()
+
+        except Exception as e:
+            print(f"[ERROR] Error al intentar eliminar {last_filepath}: {e}")
+
+    def assign_event_to_last(self, text=None):
+        """Asigna o edita el tipo/nombre de evento en el último archivo grabado."""
+        if text is None:
+            if hasattr(self, 'textbox_event'):
+                text = self.textbox_event.text.strip()
+            else:
+                text = self.current_custom_event.strip()
+        else:
+            text = text.strip()
+
+        if not text:
+            print("[AVISO] El nombre del evento está vacío. Escribe algo como 'Aplaudir'.")
+            return
+
+        self.current_custom_event = text
+
+        if not self.saved_history:
+            print(f"\n[AVISO] No hay muestra previa guardada para editar. El evento '{text}' se aplicará automáticamente a la PRÓXIMA muestra que se grabe.")
+            self.update_plot_title()
+            return
+
+        last_filepath = self.saved_history[-1]
+        if not os.path.exists(last_filepath):
+            print(f"[ERROR] El archivo '{last_filepath}' no existe en disco.")
+            return
+
+        try:
+            with open(last_filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            old_event = data.get("header", {}).get("event", "desconocido")
+            data.setdefault("header", {})["event"] = text
+
+            with open(last_filepath, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+
+            fname = os.path.basename(last_filepath)
+            self.last_saved_name = f"{fname} [{text}]"
+
+            print("\n" + "=" * 65)
+            print(f" [ACTUALIZADO] Evento de '{fname}' modificado con éxito:")
+            print(f"   • Evento anterior: '{old_event}'")
+            print(f"   • Evento nuevo:    '{text}'")
+            print("=" * 65 + "\n")
+
+            self.update_plot_title()
+        except Exception as e:
+            print(f"[ERROR] No se pudo actualizar el archivo {last_filepath}: {e}")
 
     def flush_and_save_current_batch(self):
         """Guarda en JSON el lote actual si contiene datos de sensores."""
@@ -287,17 +414,36 @@ class SerialRecorderApp:
 
         has_data = len(self.current_batch["imu"]) > 0 or len(self.current_batch["pressure"]) > 0
         if has_data:
-            filename, event_data = save_dataset_to_json(self.current_batch, self.current_mode, self.output_dir)
+            # Obtener evento personalizado si fue escrito en el TextBox
+            event_text = self.textbox_event.text.strip() if hasattr(self, 'textbox_event') else self.current_custom_event
+            if event_text:
+                self.current_custom_event = event_text
+
+            filename, event_data = save_dataset_to_json(
+                self.current_batch,
+                self.current_mode,
+                self.output_dir,
+                custom_event=self.current_custom_event
+            )
+            filepath = os.path.join(self.output_dir, filename)
+            self.saved_history.append(filepath)
             self.total_saved_events += 1
-            self.last_saved_name = filename
+
+            event_tag = event_data['header']['event']
+            self.last_saved_name = f"{filename} [{event_tag}]" if event_tag else filename
+
+            total_imu = len(event_data["timeseries"]["accelerometer"]["data_acel_x"])
+            total_press = len(event_data["timeseries"]["altitud"]["press"])
+            temp_val = event_data["timeseries"]["altitud"]["temp"]
 
             print("\n" + "=" * 65)
             print(f" [OK] ¡EVENTO GUARDADO! -> {filename}")
-            print(f" Archivo: {os.path.abspath(os.path.join(self.output_dir, filename))}")
-            print(f"   • Muestras IMU: {event_data['total_imu_samples']}")
-            print(f"   • Muestras Presión: {event_data['total_pressure_samples']}")
-            if event_data['temperature_c'] is not None:
-                print(f"   • Temperatura: {event_data['temperature_c']} °C")
+            print(f" Archivo: {os.path.abspath(filepath)}")
+            print(f"   • Tipo: {event_data['header']['type']} | Evento: {event_data['header']['event']}")
+            print(f"   • Muestras IMU: {total_imu} (fs: {event_data['header']['fs_acel']} Hz)")
+            print(f"   • Muestras Presión: {total_press} (fs: {event_data['header']['fs_press']} Hz)")
+            if temp_val is not None:
+                print(f"   • Temperatura: {temp_val} °C")
             print("=" * 65 + "\n")
 
             self.update_plot_title()
@@ -314,25 +460,47 @@ class SerialRecorderApp:
 
     def setup_plot(self):
         plt.ion()
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(11, 8))
-        self.fig.subplots_adjust(bottom=0.15, hspace=0.35)
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(11, 8.5))
+        self.fig.subplots_adjust(bottom=0.20, hspace=0.38, top=0.92)
 
-        # Botones interactivos en la ventana para cambiar modo en tiempo real
-        ax_btn_caida = plt.axes([0.18, 0.03, 0.28, 0.05])
-        ax_btn_nocaida = plt.axes([0.54, 0.03, 0.28, 0.05])
+        # -------------------------------------------------------------
+        # Fila 1 de controles (y = 0.10, h = 0.045): Modos y Descartar
+        # -------------------------------------------------------------
+        ax_btn_caida = plt.axes([0.08, 0.10, 0.25, 0.045])
+        ax_btn_nocaida = plt.axes([0.36, 0.10, 0.25, 0.045])
+        ax_btn_discard = plt.axes([0.64, 0.10, 0.28, 0.045])
 
-        self.btn_caida = Button(ax_btn_caida, 'Grabar como: CAÍDA', color='#ff9999', hovercolor='#ff6666')
-        self.btn_nocaida = Button(ax_btn_nocaida, 'Grabar como: NO CAÍDA', color='#99ff99', hovercolor='#66ff66')
+        self.btn_caida = Button(ax_btn_caida, 'Modo: CAIDA [C]', color='#ffcccc', hovercolor='#ff9999')
+        self.btn_nocaida = Button(ax_btn_nocaida, 'Modo: NO CAIDA [N]', color='#ccffcc', hovercolor='#99ff99')
+        self.btn_discard = Button(ax_btn_discard, 'Descartar Ultima [D]', color='#ffe0b2', hovercolor='#ffb74d')
 
         self.btn_caida.on_clicked(lambda event: self.set_mode("Caida"))
         self.btn_nocaida.on_clicked(lambda event: self.set_mode("NoCaida"))
+        self.btn_discard.on_clicked(lambda event: self.discard_last_sample())
 
-        # Evento de teclado (c = Caida, n = NoCaida)
+        # -------------------------------------------------------------
+        # Fila 2 de controles (y = 0.03, h = 0.045): Asignar / Editar Evento
+        # -------------------------------------------------------------
+        ax_textbox_event = plt.axes([0.18, 0.03, 0.45, 0.045])
+        ax_btn_set_event = plt.axes([0.66, 0.03, 0.26, 0.045])
+
+        self.textbox_event = TextBox(ax_textbox_event, 'Tipo / Evento: ', initial=self.current_custom_event or '')
+        self.btn_set_event = Button(ax_btn_set_event, 'Asignar a Ultima', color='#e1f5fe', hovercolor='#b3e5fc')
+
+        self.textbox_event.on_submit(lambda text: self.assign_event_to_last(text))
+        self.btn_set_event.on_clicked(lambda event: self.assign_event_to_last())
+
+        # Evento de teclado
         def on_key(event):
+            # Si el usuario está escribiendo en el TextBox, no disparar atajos de teclado
+            if hasattr(self, 'textbox_event') and getattr(self.textbox_event, 'capturekeystrokes', False):
+                return
             if event.key in ['c', 'C']:
                 self.set_mode("Caida")
             elif event.key in ['n', 'N']:
                 self.set_mode("NoCaida")
+            elif event.key in ['d', 'D']:
+                self.discard_last_sample()
 
         self.fig.canvas.mpl_connect('key_press_event', on_key)
         self.update_plot_title()
