@@ -8,8 +8,12 @@
 #include "utils/debug.h"
 
 void CommLinkTask::init() {
-    // Iniciar el hilo asociado al metodo run de esta instancia
-    _thread.start(mbed::callback(this, &CommLinkTask::run));
+    osStatus stat = _thread.start(mbed::callback(this, &CommLinkTask::run));
+    if (stat != osOK) {
+        Serial.print("[ERROR] CommLinkTask: Fallo al iniciar hilo (codigo ");
+        Serial.print((int)stat);
+        Serial.println(" - Memoria insuficiente)");
+    }
 }
 
 bool CommLinkTask::sendMsg(AppMessage* msg) {
@@ -18,9 +22,9 @@ bool CommLinkTask::sendMsg(AppMessage* msg) {
 
 void CommLinkTask::run() {
     AppMessage msg;
-    // TODO usar unicamente uno.
-    BleDriver* comm2 = BleDriver::getInstance();
-    SerialCommDriver* comm = SerialCommDriver::getInstance();
+    // Driver de comunicacion principal: BLE para transmitir hacia la app movil
+    BleDriver* comm = BleDriver::getInstance();
+    // SerialCommDriver* commSerial = SerialCommDriver::getInstance(); // Reservado para pruebas sin BLE
 
     while (true) {
         if (_comm_link_task_queue.receive(&msg)) {

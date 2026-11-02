@@ -42,34 +42,34 @@
 #define NUM_PROCESS_POST_NOMOTION 10
 
 // =============================================================================
+// --- Configuración de Colas RTOS (Mailbox) ---
+// =============================================================================
+#ifndef TASK_QUEUE_SIZE
+#define TASK_QUEUE_SIZE 6 // 6 mensajes por cola (ahorro de RAM estática y margen holgado)
+#endif
+
+// =============================================================================
 // --- Tamaños de Stack para Tareas RTOS (en bytes) ---
 // =============================================================================
 // REGLA DE DISEÑO Y PRESUPUESTO DE MEMORIA (nRF52832 - 64 KB RAM):
 // 1. Contexto: Mbed OS asigna por defecto 4096 B por hilo (20.480 B para 5 tareas).
-//    Junto con la memoria estática (~48.5 KB) y el buffer contiguo obligatorio de
+//    Junto con la memoria estática (~45.7 KB) y el buffer contiguo obligatorio de
 //    Cordio BLE (13.000 B en Heap para NRFCordioHCIDriver::_stack_buffer), la RAM
-//    física quedaba desbordada.
+//    física requiere un dimensionamiento exacto de pilas de hilos.
 // 2. Granularidad: Se asigna memoria en múltiplos de 256 B (0.25 KB), respetando
 //    estrictamente el alineamiento de 8 bytes de la arquitectura ARM Cortex-M (AAPCS).
 // 3. Justificación por tarea:
-//    - PMIC (768 B): Piso mínimo recomendado en Mbed/RTX5 para guardar contexto e
-//      interrupciones. Ejecuta un ping I2C cada 40s sin anidamiento profundo.
-//    - NOTIFY_TELEMETRY (1024 B): Manejo de mailbox, control de GPIO/PWM (LEDs y
-//      vibrador) y serialización de métricas.
+//    - PMIC (512 B): Ejecuta un ping I2C cada 40s sin anidamiento profundo (consumo <100 B).
+//    - NOTIFY_TELEMETRY (768 B): Manejo de mailbox, control de GPIO/PWM (LEDs y vibrador).
 //    - ALARMS_EVENTS (1280 B): Algoritmo de caída libre e impacto. Reserva un array
 //      local 'uint16_t magnitudes[300]' (600 B) en la pila dentro de evaluateWindow().
-//    - SYSTEM (1536 B): Orquestador central. Maneja tickers de hardware, máquinas de
-//      estado (BHI260, botones con debouncing) y llamadas a repositorios.
-//    - COMM_LINK (1536 B): Tarea con mayor profundidad de llamada (árbol de ejecución
+//    - SYSTEM (1024 B): Orquestador central. Maneja tickers de hardware, máquinas de
+//      estado (BHI260, botones) y llamadas a repositorios.
+//    - COMM_LINK (1280 B): Tarea con mayor profundidad de llamada (árbol de ejecución
 //      que desciende por BleDriver, BLE.poll(), ArduinoBLE y capa HCI Cordio).
-//
-// TODO: Revisar la memoria de STACK_SIZE_SYSTEM_TASK (1536 B) y STACK_SIZE_ALARMS_EVENTS_TASK (1280 B)
-// ya que pueden llegar a quedar cortas bajo alta concurrencia de eventos o ráfagas continuas de cálculo.
-// Medir en tiempo de ejecución con '_thread.max_stack()'. En caso de requerir más margen en Alarms,
-// migrar el array 'magnitudes' de la función evaluateWindow() a miembro de clase estático.
 // =============================================================================
-#define STACK_SIZE_PMIC_TASK             768
-#define STACK_SIZE_NOTIFY_TELEMETRY_TASK 1024
+#define STACK_SIZE_PMIC_TASK             384
+#define STACK_SIZE_NOTIFY_TELEMETRY_TASK 512
 #define STACK_SIZE_ALARMS_EVENTS_TASK    1280
-#define STACK_SIZE_SYSTEM_TASK           1536
-#define STACK_SIZE_COMM_LINK_TASK        1536
+#define STACK_SIZE_SYSTEM_TASK           768
+#define STACK_SIZE_COMM_LINK_TASK        768

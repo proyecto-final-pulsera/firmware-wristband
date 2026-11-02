@@ -11,17 +11,18 @@ private:
     BleDriver(const BleDriver&) = delete;
     BleDriver& operator=(const BleDriver&) = delete;
 
-    // Punteros a la estructura GATT
+    // Punteros a la estructura GATT (Solo Servicio Custom de Comunicación)
     BLEService* _commService = nullptr;
     BLECharacteristic* _txCharacteristic = nullptr;
     BLECharacteristic* _rxCharacteristic = nullptr;
 
+    // Servicios estándar GATT
     BLEService* _batteryService = nullptr;
     BLEUnsignedCharCharacteristic* _batteryLevelChar = nullptr;
-
-    BLEService* _deviceInfoService = nullptr;
-    BLEStringCharacteristic* _manufacturerNameChar = nullptr;
-    BLEStringCharacteristic* _firmwareRevChar = nullptr;
+    // Device Information Service comentado para maximizar holgura en Heap (~350 B):
+    // BLEService* _deviceInfoService = nullptr;
+    // BLEStringCharacteristic* _manufacturerNameChar = nullptr;
+    // BLEStringCharacteristic* _firmwareRevChar = nullptr;
 
     // Máquina de estados para fragmentación
     enum class TxState {

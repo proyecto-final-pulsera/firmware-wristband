@@ -33,23 +33,20 @@ void BleDriver::init() {
 
     // 2. Battery Service (Estándar: 0x180F)
     _batteryService = new BLEService("180F");
-    _batteryLevelChar = new BLEUnsignedCharCharacteristic("2A19", BLERead | BLENotify); // (Estándar: 0x2A19)
+    _batteryLevelChar = new BLEUnsignedCharCharacteristic("2A19", BLERead | BLENotify);
     _batteryService->addCharacteristic(*_batteryLevelChar);
     BLE.addService(*_batteryService);
-
-    // 3. Device Information Service (Estándar: 0x180A)
-    _deviceInfoService = new BLEService("180A");
-    _manufacturerNameChar = new BLEStringCharacteristic("2A29", BLERead, 20); // (Estándar: 0x2a29)
-    _firmwareRevChar = new BLEStringCharacteristic("2A26", BLERead, 10); // (Estándar: 0x2A26)
-    _deviceInfoService->addCharacteristic(*_manufacturerNameChar);
-    _deviceInfoService->addCharacteristic(*_firmwareRevChar);
-    BLE.addService(*_deviceInfoService);
-    
-    // Setear valores fijos
-    _manufacturerNameChar->writeValue("Proyecto_Final");
-    _firmwareRevChar->writeValue("1.0.0");
-    // Aca tendriamos que inyectar el valor medido actual de la bateria en el reset
     _batteryLevelChar->writeValue(100);
+
+    // 3. Device Information Service (Estándar: 0x180A) - Comentado para maximizar holgura en Heap
+    // _deviceInfoService = new BLEService("180A");
+    // _manufacturerNameChar = new BLEStringCharacteristic("2A29", BLERead, 20);
+    // _firmwareRevChar = new BLEStringCharacteristic("2A26", BLERead, 10);
+    // _deviceInfoService->addCharacteristic(*_manufacturerNameChar);
+    // _deviceInfoService->addCharacteristic(*_firmwareRevChar);
+    // BLE.addService(*_deviceInfoService);
+    // _manufacturerNameChar->writeValue("Proyecto_Final");
+    // _firmwareRevChar->writeValue("1.0.0");
 
     // Publicitar solo el servicio custom para que la app sepa conectar
     BLE.setAdvertisedService(*_commService);

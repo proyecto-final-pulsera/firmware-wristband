@@ -9,8 +9,9 @@ private:
     static void onSerialRx();
 
     // Buffers internos para ensamblar la trama
-    uint8_t _rxBuffer[256];
-    uint16_t _rxIndex = 0;
+    // Comentados temporalmente para optimizar memoria RAM estatica
+    // uint8_t _rxBuffer[256];
+    // uint16_t _rxIndex = 0;
 
 public:
     static SerialCommDriver* getInstance();

@@ -12,7 +12,6 @@ class SystemTask {
     // Permitimos que el SystemTask orqueste y envie mensajes a esta tarea
 
 private:
-    // TODO: Monitorear stack con _thread.max_stack(); verificar si 1536 B es suficiente bajo alta concurrencia
     SystemTask() : _thread(osPriorityNormal, STACK_SIZE_SYSTEM_TASK) {}
     ~SystemTask() {}
 
@@ -21,7 +20,7 @@ private:
     SystemTask& operator=(const SystemTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _system_task_queue;
+    MessageQueue<AppMessage, TASK_QUEUE_SIZE> _system_task_queue;
 
     // --- Timers Cíclicos (ISRs) ---
     mbed::Ticker _keepAliveTicker;
@@ -58,16 +57,14 @@ private:
     void updateButtonsMde();
 
     template <typename TargetTask>
-    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_SYSTEM, MsgPriority priority = PRIORITY_NORMAL, uint32_t flags = 0, void* payload_ptr = nullptr, uint16_t payload_len = 0) {
+    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_SYSTEM, MsgPriority priority = PRIORITY_NORMAL, uint8_t flags = 0, void* payload_ptr = nullptr, uint16_t payload_len = 0) {
         AppMessage msg;
-        // Se pueden inicializar el resto en 0 o dejarlos como están si no se usan
         msg.event_id = event_id;
         msg.emisor_id = emisor_id;
         msg.priority_level = priority;
         msg.flags = flags;
         msg.payload_ptr = payload_ptr;
         msg.payload_len = payload_len;
-        msg.timestamp = (uint32_t)rtos::Kernel::Clock::now().time_since_epoch().count(); // Buena practica
         TargetTask::getInstance().sendMsg(&msg);
     }
 

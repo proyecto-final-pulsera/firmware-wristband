@@ -23,7 +23,7 @@ private:
     NotifyTelemetryTask& operator=(const NotifyTelemetryTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _mailbox;
+    MessageQueue<AppMessage, TASK_QUEUE_SIZE> _mailbox;
     
     // Instancias estáticas (Compartidas mediante punteros y payload_len)
     static BatteryData _shared_battery_data;
@@ -33,7 +33,7 @@ private:
     void updateMetrics();
 
     // Helpers para gestos del vibrador
-    uint32_t decodeVibratorDuration(uint32_t flags);
+    uint32_t decodeVibratorDuration(uint8_t flags);
     void playVibratorIntermittent(uint32_t duration_ms);
     void playVibratorContinuous(uint32_t duration_ms);
     void playVibratorCrescendo(uint32_t duration_ms);
@@ -50,7 +50,6 @@ protected:
         msg.flags = 0;
         msg.payload_ptr = payload_ptr;
         msg.payload_len = payload_len;
-        msg.timestamp = (uint32_t)rtos::Kernel::Clock::now().time_since_epoch().count();
         TargetTask::getInstance().sendMsg(&msg);
     }
 

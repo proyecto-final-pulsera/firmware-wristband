@@ -1,6 +1,5 @@
 #include "app/app.h"
 
-
 // Tareas
 #include "tasks/system_task.h"
 #include "tasks/comm_link_task.h"
@@ -26,7 +25,6 @@
 // ============================================================================
 // RUTINAS DE SERVICIO DE INTERRUPCION (ISRs)
 // ============================================================================
-
 
 void isr_bhi260() {
     AppMessage msg;
@@ -61,67 +59,6 @@ void onRxReceived(){
     return;
 }
 
-// void onRxReceived() {
-//     CommPacket pkt;
-//     BleDriver* bleComm = BleDriver::getInstance();
-//     // Llamar a processRxData para desempaquetar
-//     if (bleComm->processRxData(&pkt)) {
-//         Serial.println("\n--- [DEBUG] Paquete RX Recibido ---");
-//         Serial.print("Raw Bytes: [0x");
-//         if (pkt.type < 16) Serial.print("0");
-//         Serial.print(pkt.type, HEX);
-        
-//         for(int i = 0; i < pkt.length; i++) {
-//             Serial.print(", 0x");
-//             if (pkt.payload[i] < 16) Serial.print("0");
-//             Serial.print(pkt.payload[i], HEX);
-//         }
-//         Serial.println("]");
-
-//         if (pkt.type == MSG_ACK && pkt.length >= 2) {
-//             MsgType ackedMsg = (MsgType)pkt.payload[0];
-//             uint8_t status = pkt.payload[1];
-            
-//             // Serial.println("Interpretación:");
-//             Serial.println(" - Tipo de Mensaje: MSG_ACK (0x00)");
-            
-//             Serial.print(" - Referencia a MsgType: 0x");
-//             if (ackedMsg < 16) Serial.print("0");
-//             Serial.println(ackedMsg, HEX);
-            
-//             Serial.print(" - Status: 0x");
-//             if (status < 16) Serial.print("0");
-//             Serial.print(status, HEX);
-//             Serial.println(status == 0 ? " (ÉXITO)" : " (ERROR)");
-
-//             if (status == 0) {
-//                 Serial.println("-> Acción: Transmisión confirmada. No se requiere reenvío.");
-//                 pendingImuRetry = false; // Limpiar banderas por si acaso
-//             } else {
-//                 Serial.println("-> Acción: [NACK] ERROR reportado. Evaluando reenvío asíncrono...");
-                
-//                 // Filtramos solo los mensajes críticos que ameritan reenvío según tu app
-//                 if (ackedMsg == MSG_IMU_BUFFER || ackedMsg == MSG_PRESSURE_BUFFER || 
-//                     ackedMsg == MSG_TEMPERATURE || ackedMsg == MSG_FALL_SENSORS || 
-//                     ackedMsg == MSG_PANIC_BTN_PRESS) {
-                    
-//                     if (ackedMsg == MSG_IMU_BUFFER) {
-//                         Serial.println("-> Programando reintento para MSG_IMU_BUFFER.");
-//                         pendingImuRetry = true;
-//                     } else {
-//                         Serial.println("-> (A implementar: reintento para este MsgType específico)");
-//                     }
-//                 } else {
-//                     Serial.println("-> Acción: El mensaje fallido no requiere reenvío automático.");
-//                 }
-//             }
-//         } else {
-//             Serial.println("Evento: Comando recibido no es un ACK o tiene formato incorrecto.");
-//         }
-//         Serial.println("-----------------------------------");
-//     }
-// }
-
 // ============================================================================
 // INICIALIZACION GLOBAL DEL SISTEMA
 // ============================================================================
@@ -130,39 +67,46 @@ void App::init() {
     // 1. Instanciar e Inicializar Hardware y Drivers Base
     // ------------------------------------------------------------------------
     
+    // Comunicaciones BLE: Inicializar PRIMERO para que Cordio aloje sus 13 KB
+    // en un Heap 100% contiguo y libre de fragmentación.
+    BleDriver* bleComm = BleDriver::getInstance();
+    bleComm->init();
+
+    Serial.println("BLE Configurado correctamente.");
+    Serial.println("Esperando conexión desde el smartphone...");
+
     // Vibrador 
     VibratorDriver* vibrator = VibratorDriver::getInstance();
     vibrator->init();
+    Serial.println("INIT Vibrator");
 
-    // PMIC (Bateri­a)
+    // PMIC (Batería)
     BatteryDriver* battery = BatteryDriver::getInstance();
     battery->init();
-    
+    Serial.println("INIT Battery");    
+
     // Sensor Principal BHI260
     BHI260Driver* bhi260 = BHI260Driver::getInstance();
     bhi260->init();
     bhi260->configureInterrupt(isr_bhi260);
+    Serial.println("INIT BHI");
 
     // Interfaz LED
     LedDriver* led = LedDriver::getInstance();
     led->init();
+    Serial.println("INIT Led");
 
     PanicButton* panicBtn = PanicButton::getInstance();
     panicBtn->setIrqHandler(isr_panic_button);
 
     NotifButton* notifBtn = NotifButton::getInstance();
     notifBtn->setIrqHandler(isr_notif_button);
-
-
-    // Comunicaciones
-    SerialCommDriver* serialDriver = SerialCommDriver::getInstance();
-    serialDriver->init();
-    // BleDriver* bleComm = BleDriver::getInstance();
-    // bleComm->init();
+    Serial.println("INIT Buttons");
 
     // bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
     // bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
 
+    Serial.println("INIT FLAG 01: Drivers OK.");
 
     // ------------------------------------------------------------------------
     // 1.5 Inicializar Repositorios de Sensores
@@ -177,7 +121,8 @@ void App::init() {
     NoMotionRepository::getInstance()->begin(1.0f, 0);
     StepCounterRepository::getInstance()->begin(1.0f, (uint32_t)-1);
     
-    
+    Serial.println("INIT FLAG 01.5: Repositories OK.");      
+
     // ------------------------------------------------------------------------
     // 2. Levantar las Tareas (Threads) del RTOS
     // ------------------------------------------------------------------------
@@ -188,6 +133,7 @@ void App::init() {
     PmicTask::getInstance().init();
     AlarmsEventsTask::getInstance().init();
     SystemTask::getInstance().init();
+    Serial.println("INIT FLAG 02: All Tasks started.");
 
     // ------------------------------------------------------------------------
     // 3. Habilitar Interrupciones (Post-RTOS)
@@ -200,5 +146,6 @@ void App::init() {
 
     panicBtn->enableInterrupt();
     notifBtn->enableInterrupt();
-    serialDriver->attachRxInterrupt(); 
+    // serialDriver->attachRxInterrupt();
+    Serial.println("INIT FLAG 03: Interrupts Enabled."); 
 }

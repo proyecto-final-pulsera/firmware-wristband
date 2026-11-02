@@ -26,15 +26,13 @@ private:
     CommLinkTask& operator=(const CommLinkTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _comm_link_task_queue;
+    MessageQueue<AppMessage, TASK_QUEUE_SIZE> _comm_link_task_queue;
 
     MetricsData _metrics_buffer;
 
     void run();
 
 protected:
-    
-
     template <typename TargetTask>
     void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_COMM_LINK, MsgPriority priority = PRIORITY_NORMAL) {
         AppMessage msg;
@@ -44,7 +42,6 @@ protected:
         msg.flags = 0;
         msg.payload_ptr = nullptr;
         msg.payload_len = 0;
-        msg.timestamp = (uint32_t)rtos::Kernel::Clock::now().time_since_epoch().count();
         TargetTask::getInstance().sendMsg(&msg);
     }
 

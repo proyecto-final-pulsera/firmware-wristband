@@ -9,13 +9,16 @@
 #include "drivers/button_driver.h"
 #include "utils/debug.h"
 #include "Arduino_BHY2.h"
+#include "drivers/battery_driver.h"
 extern BoschSensortec sensortec;
 
 void SystemTask::init() {
-    // Inicializar hardware, configuraciones previas al inicio, etc.
-    
-    // Iniciar el hilo asociado al metodo run de esta instancia
-    _thread.start(mbed::callback(this, &SystemTask::run));
+    osStatus stat = _thread.start(mbed::callback(this, &SystemTask::run));
+    if (stat != osOK) {
+        Serial.print("[ERROR] SystemTask: Fallo al iniciar hilo (codigo ");
+        Serial.print((int)stat);
+        Serial.println(" - Memoria insuficiente)");
+    }
 }
 
 bool SystemTask::sendMsg(AppMessage* msg) {
@@ -62,10 +65,25 @@ void SystemTask::run() {
     setKeepAliveTimer(true);
     setMetricsTimer(true);
 
+    // Watchdog de PMIC (BQ25120): requiere un ping I2C cada < 50s.
+    // Delegado desde PmicTask para evitar el consumo de un hilo independiente.
+    uint32_t last_pmic_ping = millis();
+
     while (true) {
-        // Timeout condicional: si hay rebote de boton pendiente, iteramos rapido. 
-        // Si no hay nada, dormimos el hilo hasta que caiga un evento RTOS.
-        uint32_t timeout = (_panic_mde_active || _notif_mde_active) ? 10 : osWaitForever;
+        // Ping periodico al PMIC cada 30 segundos
+        uint32_t now = millis();
+        if ((now - last_pmic_ping) >= 30000) {
+            BatteryDriver* battery = BatteryDriver::getInstance();
+            if (battery != nullptr) {
+                battery->ping();
+            }
+            last_pmic_ping = now;
+        }
+
+        // Si hay rebote de boton pendiente, timeout de 10 ms.
+        // Si no, dormimos hasta el proximo evento o hasta el proximo ping de PMIC (max 30s).
+        uint32_t time_to_next_ping = (30000 > (now - last_pmic_ping)) ? (30000 - (now - last_pmic_ping)) : 0;
+        uint32_t timeout = (_panic_mde_active || _notif_mde_active) ? 10 : time_to_next_ping;
 
         if (_system_task_queue.receive(&msg, timeout)) {
             switch (msg.event_id) {

@@ -8,10 +8,12 @@
 #include "utils/debug.h"
 
 void AlarmsEventsTask::init() {
-    // Inicializar hardware, configuraciones previas al inicio, etc.
-    
-    // Iniciar el hilo asociado al metodo run de esta instancia
-    _thread.start(mbed::callback(this, &AlarmsEventsTask::run));
+    osStatus stat = _thread.start(mbed::callback(this, &AlarmsEventsTask::run));
+    if (stat != osOK) {
+        Serial.print("[ERROR] AlarmsEventsTask: Fallo al iniciar hilo (codigo ");
+        Serial.print((int)stat);
+        Serial.println(" - Memoria insuficiente)");
+    }
 }
 
 bool AlarmsEventsTask::sendMsg(AppMessage* msg) {
@@ -111,17 +113,19 @@ void AlarmsEventsTask::run() {
     }
 }
 
-uint8_t AlarmsEventsTask::evaluateWindow(DataXYZ* buffer, uint16_t len) {
+uint8_t AlarmsEventsTask::evaluateWindow(uint16_t startIndex, uint16_t len) {
     uint8_t flags = 0;
     uint16_t magnitudes[IMPACT_WINDOW_SIZE];
     
     uint16_t process_len = (len > IMPACT_WINDOW_SIZE) ? IMPACT_WINDOW_SIZE : len;
 
+    ImuRepository* imu = ImuRepository::getInstance();
     for (uint16_t k = 0; k < process_len; k++) {
+        DataXYZ sample = imu->getElementAtUnprotected(startIndex + k);
         magnitudes[k] = suma_pitagorica(
-            buffer[k].x, 
-            buffer[k].y, 
-            buffer[k].z
+            sample.x, 
+            sample.y, 
+            sample.z
         );
     }
 
@@ -166,22 +170,19 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
 
     uint8_t fall_flags = 0;
 
+    imu->lock();
+
     // Procesamiento del inicio del buffer en caso de WAKEUP
     if (process_preFall) {
-        uint16_t len = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, 0);
-        if (len != 0) {
-            fall_flags |= evaluateWindow(_imu_window_buffer, len);
-        }
+        fall_flags |= evaluateWindow(0, IMPACT_WINDOW_SIZE);
     }
 
     // Segunda etapa (o única si no es wakeup): ventana del medio
     if (fall_flags != FLAG_FALL_DETECTED) {
-        uint16_t len = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, START_IMPACT_WINDOW_INDEX);
-        if (len != 0) {
-            fall_flags |= evaluateWindow(_imu_window_buffer, len);
-        }
+        fall_flags |= evaluateWindow(START_IMPACT_WINDOW_INDEX, IMPACT_WINDOW_SIZE);
     }
+
+    imu->unlock();
 
     return (fall_flags == FLAG_FALL_DETECTED);
 }
-
