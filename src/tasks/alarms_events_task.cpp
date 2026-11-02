@@ -115,45 +115,63 @@ void AlarmsEventsTask::run() {
 
 uint8_t AlarmsEventsTask::evaluateWindow(uint16_t startIndex, uint16_t len) {
     uint8_t flags = 0;
-    uint16_t magnitudes[IMPACT_WINDOW_SIZE];
-    
     uint16_t process_len = (len > IMPACT_WINDOW_SIZE) ? IMPACT_WINDOW_SIZE : len;
-
-    ImuRepository* imu = ImuRepository::getInstance();
-    for (uint16_t k = 0; k < process_len; k++) {
-        DataXYZ sample = imu->getElementAtUnprotected(startIndex + k);
-        magnitudes[k] = suma_pitagorica(
-            sample.x, 
-            sample.y, 
-            sample.z
-        );
-    }
 
     if (process_len <= SLIDING_WINDOW_SIZE) return flags;
 
-    for (uint16_t i = 0; i <= process_len - SLIDING_WINDOW_SIZE; i++) {
-        uint32_t sum_magnitud_ventana = 0;
+    ImuRepository* imu = ImuRepository::getInstance();
+    uint16_t window[SLIDING_WINDOW_SIZE];
+    uint32_t sum_magnitud_ventana = 0;
 
-        for (uint16_t j = 0; j < SLIDING_WINDOW_SIZE; j++) {
-            sum_magnitud_ventana += magnitudes[i + j];
-        }
+    // Cargar y sumar las primeras SLIDING_WINDOW_SIZE muestras (8 muestras = 16 bytes de stack en lugar de 600)
+    for (uint8_t k = 0; k < SLIDING_WINDOW_SIZE; k++) {
+        DataXYZ sample = imu->getElementAtUnprotected(startIndex + k);
+        uint16_t mag = suma_pitagorica(sample.x, sample.y, sample.z);
+        window[k] = mag;
+        sum_magnitud_ventana += mag;
+    }
 
-        uint16_t promedio_ventana = sum_magnitud_ventana >> SLIDING_WINDOW_SHIFT;
+    // Evaluar la primera ventana
+    uint16_t promedio_ventana = sum_magnitud_ventana >> SLIDING_WINDOW_SHIFT;
+    if (promedio_ventana < THRESHOLD_FREE_FALL) {
+        flags |= FLAG_FREE_FALL;
+        DEBUG_PRINT("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
+    }
+    if (promedio_ventana > THRESHOLD_IMPACT) {
+        flags |= FLAG_IMPACT;
+        DEBUG_PRINT("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
+    }
+    if (flags == FLAG_FALL_DETECTED) {
+        return flags;
+    }
+
+    // Deslizar ventana muestra por muestra (O(1) por muestra en lugar de O(N*8))
+    uint8_t win_idx = 0;
+    for (uint16_t k = SLIDING_WINDOW_SIZE; k < process_len; k++) {
+        DataXYZ sample = imu->getElementAtUnprotected(startIndex + k);
+        uint16_t mag = suma_pitagorica(sample.x, sample.y, sample.z);
+
+        sum_magnitud_ventana -= window[win_idx];
+        window[win_idx] = mag;
+        sum_magnitud_ventana += mag;
+        win_idx = (win_idx + 1) & (SLIDING_WINDOW_SIZE - 1);
+
+        promedio_ventana = sum_magnitud_ventana >> SLIDING_WINDOW_SHIFT;
 
         if (promedio_ventana < THRESHOLD_FREE_FALL) {
             if (!(flags & FLAG_FREE_FALL)) {
-DEBUG_PRINT("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
+                DEBUG_PRINT("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
             }
             flags |= FLAG_FREE_FALL;
         }
-        
+
         if (promedio_ventana > THRESHOLD_IMPACT) {
             if (!(flags & FLAG_IMPACT)) {
-DEBUG_PRINT("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
+                DEBUG_PRINT("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
             }
             flags |= FLAG_IMPACT;
         }
-        
+
         if (flags == FLAG_FALL_DETECTED) {
             return flags;
         }
