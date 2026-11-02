@@ -74,7 +74,7 @@ void AlarmsEventsTask::run() {
                     DEBUG_PRINT("[AlarmsEventsTask] Tiempo process (us): "); DEBUG_PRINTLN(micros() - t_start);
                     if (fall) {
                         DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
-                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+                        // notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
                         notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, 0);
                     }
                     break;
@@ -84,7 +84,7 @@ void AlarmsEventsTask::run() {
                     DEBUG_PRINT("[AlarmsEventsTask] Tiempo process Wakeup (us): "); DEBUG_PRINTLN(micros() - t_start);
                     if (fall) {
                         DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO (WAKEUP) ***");
-                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+                        // notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
                         notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, PRE_FALL_PROCESSED_FLAG);
                     }
                     break;

@@ -28,7 +28,7 @@ void CommLinkTask::run() {
 
     while (true) {
         // Timeout de 10 ms: si no hay mensajes en cola, despierta para atender eventos BLE
-        if (_comm_link_task_queue.receive(&msg, 10)) {
+        if (_comm_link_task_queue.receive(&msg, 100)) {
             uint32_t t_start_ms = millis();
             
             switch (msg.event_id) {

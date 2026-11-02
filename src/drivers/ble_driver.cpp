@@ -1,4 +1,5 @@
 #include "drivers/ble_driver.h"
+#include <mbed.h>
 
 // UUIDs Base (Custom Communication Service)
 #define BLE_COMM_SERVICE_UUID "19B10000-E8F2-537E-4F6C-D104768A1214"
@@ -119,6 +120,7 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
         
         while(_txState == TxState::TX_EN_PROGRESO){
             processBleEvents();
+            rtos::ThisThread::sleep_for(std::chrono::milliseconds(20));
         }
         return true;
     }
@@ -150,13 +152,14 @@ void BleDriver::processBleEvents() {
         }
 
         memcpy(&_txPacketBuffer[6], &_txBuffer[_txOffset], chunkDataLen);
-        _txCharacteristic->writeValue(_txPacketBuffer, chunkDataLen + 6);
+        if (_txCharacteristic->writeValue(_txPacketBuffer, chunkDataLen + 6)) {
 
         _txOffset += chunkDataLen;
         _chunkSequence++;
 
         if (_txOffset >= _txBufferLen) {
             _txState = TxState::IDLE; // Transmisión completada
+        }
         }
     }
 }

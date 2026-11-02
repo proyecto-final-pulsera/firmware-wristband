@@ -13,7 +13,7 @@
 
 // Longitud del buffer del IMU (en segundos)
 #ifndef LEN_BUFFER_IMU_SEG
-#define LEN_BUFFER_IMU_SEG 16
+#define LEN_BUFFER_IMU_SEG 13
 #endif
 
 // Tamaño del buffer de IMU.
