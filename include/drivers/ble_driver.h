@@ -46,6 +46,9 @@ private:
     uint8_t _rxBuffer[128];
     uint16_t _rxIndex = 0;
 
+    // Buffer para armado de paquetes de transmision (TX) fuera del stack de CommLinkTask
+    uint8_t _txPacketBuffer[BLE_MTU_PAYLOAD];
+
     // Callbacks estáticos de interrupción BLE
     static void onBleWrite(BLEDevice central, BLECharacteristic characteristic);
     static void onBleConnect(BLEDevice central);

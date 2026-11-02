@@ -42,6 +42,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+// #include "rtos.h"
 
 #include "bosch/bhy2_parse.h"
 #include "bosch/bhy2.h"
@@ -101,6 +102,7 @@ const char* get_api_error(int8_t error_code)
 }
 
 mbed::SPI spi(SPI_PSELMOSI0, SPI_PSELMISO0, SPI_PSELSCK0 /*, SPI_PSELSS0 */);
+// static rtos::Mutex _bhi_spi_mutex;
 
 void setup_interfaces(bool reset_power, enum bhy2_intf intf)
 {
@@ -115,6 +117,7 @@ int8_t bhy2_spi_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void 
 {
     (void)intf_ptr;
 
+    // rtos::ScopedMutexLock lock(_bhi_spi_mutex);
     BHY260_CS_PIN = 0;
     spi.write(reg_addr);
     spi.write(NULL, (uint16_t)length, (char*)reg_data, (uint16_t)length);
@@ -126,6 +129,8 @@ int8_t bhy2_spi_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void 
 int8_t bhy2_spi_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
     (void)intf_ptr;
+
+    // rtos::ScopedMutexLock lock(_bhi_spi_mutex);
     BHY260_CS_PIN = 0;
     spi.write(reg_addr);
     spi.write((char*)reg_data, (uint16_t)length, NULL, 0);

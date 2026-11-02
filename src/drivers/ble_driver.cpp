@@ -95,12 +95,11 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
 
     if (len <= BLE_MTU_PAYLOAD - 1) {
         // Envío Directo (Sin fragmentar) -> [MsgType] [Payload...]
-        uint8_t packet[BLE_MTU_PAYLOAD];
-        packet[0] = type;
+        _txPacketBuffer[0] = type;
         if (len > 0 && payload != nullptr) {
-            memcpy(&packet[1], payload, len);
+            memcpy(&_txPacketBuffer[1], payload, len);
         }
-        _txCharacteristic->writeValue(packet, len + 1);
+        _txCharacteristic->writeValue(_txPacketBuffer, len + 1);
         return true;
     } else {
         // Envío Fragmentado -> Pasa al motor asíncrono
@@ -137,23 +136,21 @@ void BleDriver::processBleEvents() {
         }
 
         uint16_t remaining = _txBufferLen - _txOffset;
-        uint8_t packet[BLE_MTU_PAYLOAD];
-        
         // Estructura Cabecera de Fragmento: [MsgType] [SeqHigh] [SeqLow] [TotalHigh] [TotalLow] [CRC8_Global] [Payload...]
-        packet[0] = _currentTxMsgType;
-        packet[1] = (_chunkSequence >> 8) & 0xFF; // Parte alta
-        packet[2] = _chunkSequence & 0xFF; // Parte baja
-        packet[3] = (_totalChunks >> 8) & 0xFF; // Parte alta
-        packet[4] = _totalChunks & 0xFF; // Parte baja
-        packet[5] = _globalCrc;
+        _txPacketBuffer[0] = _currentTxMsgType;
+        _txPacketBuffer[1] = (_chunkSequence >> 8) & 0xFF; // Parte alta
+        _txPacketBuffer[2] = _chunkSequence & 0xFF; // Parte baja
+        _txPacketBuffer[3] = (_totalChunks >> 8) & 0xFF; // Parte alta
+        _txPacketBuffer[4] = _totalChunks & 0xFF; // Parte baja
+        _txPacketBuffer[5] = _globalCrc;
 
         uint16_t chunkDataLen = BLE_MTU_PAYLOAD - 6;
         if (remaining < chunkDataLen) {
             chunkDataLen = remaining;
         }
 
-        memcpy(&packet[6], &_txBuffer[_txOffset], chunkDataLen);
-        _txCharacteristic->writeValue(packet, chunkDataLen + 6);
+        memcpy(&_txPacketBuffer[6], &_txBuffer[_txOffset], chunkDataLen);
+        _txCharacteristic->writeValue(_txPacketBuffer, chunkDataLen + 6);
 
         _txOffset += chunkDataLen;
         _chunkSequence++;

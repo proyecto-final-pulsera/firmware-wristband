@@ -69,7 +69,7 @@
 //      que desciende por BleDriver, BLE.poll(), ArduinoBLE y capa HCI Cordio).
 // =============================================================================
 #define STACK_SIZE_PMIC_TASK             384
-#define STACK_SIZE_NOTIFY_TELEMETRY_TASK 512
-#define STACK_SIZE_ALARMS_EVENTS_TASK    1280
-#define STACK_SIZE_SYSTEM_TASK           768
-#define STACK_SIZE_COMM_LINK_TASK        768
+#define STACK_SIZE_NOTIFY_TELEMETRY_TASK 448
+#define STACK_SIZE_ALARMS_EVENTS_TASK    1152
+#define STACK_SIZE_SYSTEM_TASK           640//640
+#define STACK_SIZE_COMM_LINK_TASK        960
