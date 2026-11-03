@@ -57,11 +57,8 @@ void BleDriver::init() {
 
     BLE.advertise();
 
-    // Hack de bajo nivel: Forzar la potencia de transmisión de la radio al máximo (+4 dBm)
-    // Por algun motivo no tiene el #define RADIO_TXPOWER_TXPOWER_Pos8dBm en los archivos de nRF
-    // El chip nRF52840 (NINA-B306) lo soporta nativamente.
-    // Escribimos directamente en el registro hardware del microcontrolador saltándonos la librería.
-    NRF_RADIO->TXPOWER = (RADIO_TXPOWER_TXPOWER_Pos4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+    // Configurar potencia de transmisión de la antena (por defecto al máximo: +4 dBm)
+    setTxPower(TxPower::POS_4_DBM);
 }
 
 void BleDriver::attachRxInterrupt() {
@@ -202,4 +199,46 @@ void BleDriver::onBleDisconnect(BLEDevice central) {
     Serial.print("App desconectada. MAC: ");
     Serial.println(central.address());
     nicla::leds.setColor(blue); // Vuelve a azul para indicar desconectado/esperando
+}
+
+// ==================================================================
+// Potencia de Transmisión de Antena (TX Power)
+// ==================================================================
+void BleDriver::setTxPower(TxPower power) {
+    setTxPower(static_cast<int8_t>(power));
+}
+
+void BleDriver::setTxPower(int8_t power_dbm) {
+    uint32_t reg_val;
+    switch (power_dbm) {
+        case 4:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Pos4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case 0:
+            reg_val = (RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -4:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -8:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg8dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -12:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg12dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -16:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg16dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -20:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg20dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -40:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg40dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        default:
+            // Por defecto máxima potencia de transmisión (+4 dBm)
+            reg_val = (RADIO_TXPOWER_TXPOWER_Pos4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+    }
+    NRF_RADIO->TXPOWER = reg_val;
 }

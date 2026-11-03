@@ -7,6 +7,7 @@
 #include "repositories/pressure_repository.h"
 #include "tasks/alarms_events_task.h"
 #include "app/config.h"
+#include "drivers/comm_driver.h"
 
 // Struct de métricas como template para el futuro
 struct MetricsData {
@@ -29,6 +30,8 @@ private:
     MessageQueue<AppMessage, TASK_QUEUE_SIZE> _comm_link_task_queue;
 
     MetricsData _metrics_buffer;
+    CommPacket _rx_packet;
+    uint8_t _retry_counts[16] = {0};
 
     void run();
 
@@ -58,9 +61,9 @@ public:
         CMD_TX_FALL_SENSORS    = 0x07,
         CMD_TX_WARNING         = 0x08,
         CMD_TX_PANIC_BTN_PRESS = 0x09,
-        EVT_RX_PACKET          = 0x0A,
-        CMD_TX_BATTERY_DATA    = 0x0B,
-        CMD_TX_NOTIF_BTN_PRESS = 0x0C
+        CMD_TX_BATTERY_DATA    = 0x0A,
+        CMD_TX_NOTIF_BTN_PRESS = 0x0C,
+        EVT_RX_PACKET          = 0x20
     };
 
     static CommLinkTask& getInstance() {

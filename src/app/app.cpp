@@ -55,8 +55,11 @@ void isr_notif_button() {
     }
 }
 
-void onRxReceived(){
-    return;
+void onRxReceived() {
+    AppMessage msg;
+    msg.event_id = CommLinkTask::EVT_RX_PACKET;
+    msg.emisor_id = TASK_ISR_ROUTINE;
+    CommLinkTask::getInstance().sendMsg(&msg);
 }
 
 // ============================================================================
@@ -71,6 +74,7 @@ void App::init() {
     // en un Heap 100% contiguo y libre de fragmentación.
     BleDriver* bleComm = BleDriver::getInstance();
     bleComm->init();
+    bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
 
     Serial.println("BLE Configurado correctamente.");
     Serial.println("Esperando conexión desde el smartphone...");
@@ -102,9 +106,6 @@ void App::init() {
     NotifButton* notifBtn = NotifButton::getInstance();
     notifBtn->setIrqHandler(isr_notif_button);
     Serial.println("INIT Buttons");
-
-    // bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
-    // bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
 
     Serial.println("INIT FLAG 01: Drivers OK.");
 
@@ -146,6 +147,7 @@ void App::init() {
 
     panicBtn->enableInterrupt();
     notifBtn->enableInterrupt();
+    bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
     // serialDriver->attachRxInterrupt();
     Serial.println("INIT FLAG 03: Interrupts Enabled."); 
 }
