@@ -86,39 +86,38 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
 
     if (!BLE.connected())
         return false;
-        
-    if (_txState != TxState::IDLE) {
-        return false; // El motor está ocupado despachando fragmentos anteriores
-    }
 
     if (len <= BLE_MTU_PAYLOAD - 1) {
         // Envío Directo (Sin fragmentar) -> [MsgType] [Payload...]
+        // Los mensajes prioritarios simples pueden despacharse de inmediato sin interferir con la fragmentación
         _txPacketBuffer[0] = type;
         if (len > 0 && payload != nullptr) {
             memcpy(&_txPacketBuffer[1], payload, len);
         }
-        _txCharacteristic->writeValue(_txPacketBuffer, len + 1);
-        return true;
+        return _txCharacteristic->writeValue(_txPacketBuffer, len + 1);
     } else {
-        // Envío Fragmentado -> Pasa al motor asíncrono
+        // Envío Fragmentado: Solo una ráfaga multi-paquete activa a la vez
+        if (_txState != TxState::IDLE) {
+            return false; // El motor ya está ocupado despachando fragmentos anteriores
+        }
+
+        // Configurar motor asíncrono (NO BLOQUEANTE)
         _txState = TxState::TX_EN_PROGRESO;
         _currentTxMsgType = type;
         _txBuffer = payload;
         _txBufferLen = len;
         _txOffset = 0;
         _chunkSequence = 0;
-        
-        // Calculamos el total de fragmentos. Header es de 6 bytes, nos quedan 14 libres por chunk
+
         uint16_t maxSizePerChunk = BLE_MTU_PAYLOAD - 6;
         _totalChunks = (len + maxSizePerChunk - 1) / maxSizePerChunk;
-        
+
         // Calcular CRC8 global de todo el payload
         _globalCrc = calculateCRC8(payload, len);
-        
-        while(_txState == TxState::TX_EN_PROGRESO){
-            processBleEvents();
-            rtos::ThisThread::sleep_for(std::chrono::milliseconds(20));
-        }
+
+        // Despachar el primer fragmento (Chunk 0) inmediatamente.
+        // Los siguientes fragmentos se despacharán asíncronamente en processBleEvents()
+        processBleEvents();
         return true;
     }
 }

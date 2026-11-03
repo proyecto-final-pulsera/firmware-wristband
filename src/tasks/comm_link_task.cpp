@@ -27,8 +27,10 @@ void CommLinkTask::run() {
     // SerialCommDriver* commSerial = SerialCommDriver::getInstance(); // Reservado para pruebas sin BLE
 
     while (true) {
-        // Timeout de 10 ms: si no hay mensajes en cola, despierta para atender eventos BLE
-        if (_comm_link_task_queue.receive(&msg, 100)) {
+        // Pacing dinámico: 20 ms si estamos despachando fragmentos asíncronos, 100 ms en reposo
+        uint32_t queue_timeout_ms = comm->isTxInProgress() ? 20 : 100;
+
+        if (_comm_link_task_queue.receive(&msg, queue_timeout_ms)) {
             uint32_t t_start_ms = millis();
             
             switch (msg.event_id) {
@@ -223,6 +225,6 @@ void CommLinkTask::run() {
         }
 
         // Atiende eventos GATT, MTU, descubrimiento y conexion continuamente
-        comm->processBleEvents();
+        comm->processBleEvents();   // Llama a BLE.poll()
     }
 }

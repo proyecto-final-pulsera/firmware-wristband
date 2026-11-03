@@ -93,6 +93,9 @@ public:
      */
     void setTxPower(int8_t power_dbm);
 
+    /// Indica si el motor asíncrono está ocupado transmitiendo fragmentos
+    bool isTxInProgress() const { return _txState == TxState::TX_EN_PROGRESO; }
+
     // Debe llamarse periódicamente en el super-loop o tarea para que el engine despache fragmentos
     void processBleEvents();
 
