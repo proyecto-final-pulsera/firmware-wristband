@@ -185,7 +185,7 @@ void BleDriver::onBleWrite(BLEDevice central, BLECharacteristic characteristic) 
 }
 
 void BleDriver::onBleConnect(BLEDevice central) {
-    Serial.print("App conectada. MAC: ");
+    Serial.print("[BLE_Driver] App conectada. MAC: ");
     Serial.println(central.address());
     nicla::leds.setColor(green); // Verde indica conectado
 }
@@ -195,7 +195,7 @@ void BleDriver::onBleDisconnect(BLEDevice central) {
     BleDriver* instance = getInstance();
     instance->_txState = TxState::IDLE;
 
-    Serial.print("App desconectada. MAC: ");
+    Serial.print("[BLE_Driver] App desconectada. MAC: ");
     Serial.println(central.address());
     nicla::leds.setColor(blue); // Vuelve a azul para indicar desconectado/esperando
 }

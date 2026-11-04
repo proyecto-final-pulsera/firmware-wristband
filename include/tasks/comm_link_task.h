@@ -33,6 +33,11 @@ private:
     CommPacket _rx_packet;
     uint8_t _retry_counts[16] = {0};
 
+    // Métodos privados de procesamiento de recepción (RX)
+    void handleRxPacket();
+    void handleAck(MsgType ackedMsg, uint8_t status);
+    void dispatchRetry(MsgType type);
+
     void run();
 
 protected:
