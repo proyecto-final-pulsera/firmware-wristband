@@ -99,7 +99,6 @@ void BHI260Driver::configureInterrupt(void (*isr_handler)(void)) {
     if (_interruptPin != 0xFFFFFFFF) {
         _isr_handler = isr_handler;
         pinMode(_interruptPin, INPUT);
-        attachInterrupt(digitalPinToInterrupt(_interruptPin), _isr_handler, RISING);
     }
 }
 

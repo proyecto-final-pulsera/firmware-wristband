@@ -142,8 +142,8 @@ void App::init() {
     // Se habilitan al final para evitar que una ISR intente enviar un mensaje
     // a una tarea que todavia no fue inicializada.
 
-    bhi260->enableInterrupt();
     bhi260->flushFIFOs();
+    bhi260->enableInterrupt();
 
     panicBtn->enableInterrupt();
     notifBtn->enableInterrupt();
