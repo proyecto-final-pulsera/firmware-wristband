@@ -19,6 +19,7 @@ enum MsgType : uint8_t {
     MSG_WARNING         = 0x08, // Advertencias menores
     MSG_PANIC_BTN_PRESS = 0x09, // Boton de panico presionado
     MSG_BATTERY_DATA    = 0x0A, // Datos de nivel de bateria
+    MSG_AUTH            = 0x0B, // Handshake de autenticacion con UID
     MSG_NOTIF_BTN_PRESS = 0x0C  // Boton de notificacion presionado
 };
 

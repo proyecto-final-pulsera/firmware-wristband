@@ -33,117 +33,155 @@ void CommLinkTask::run() {
         if (_comm_link_task_queue.receive(&msg, queue_timeout_ms)) {
             uint32_t t_start_ms = millis();
             
-            switch (msg.event_id) {
-                
-                case CMD_TX_IMU_BUFFER: {
-                    ImuRepository* imu = ImuRepository::getInstance();
-                    imu->lock();
-                    uint16_t count = 0;
-                    const DataXYZ* buf = imu->getLinearBufferUnprotected(&count);
-                    if (buf != nullptr && count > 0) {
-                        comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)buf, count * sizeof(DataXYZ));
-                        imu->fifoFlushUnprotected();
-                    }
-                    imu->unlock();
-                    break;
-                }
-                case CMD_TX_PRESSURE_BUFFER: {
-                    PressureRepository* pres = PressureRepository::getInstance();
-                    pres->lock();
-                    uint16_t count = 0;
-                    const float* buf = pres->getLinearBufferUnprotected(&count);
-                    if (buf != nullptr && count > 0) {
-                        comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)buf, count * sizeof(float));
-                        pres->fifoFlushUnprotected();
-                    }
-                    pres->unlock();
-                    break;
-                }
-                case CMD_TX_FALL_SENSORS: {
-                    ImuRepository* imu = ImuRepository::getInstance();
-                    imu->lock();
-                    uint16_t imuCount = 0;
-                    const DataXYZ* imuBuf = imu->getLinearBufferUnprotected(&imuCount);
-                    if (imuBuf != nullptr && imuCount > 0) {
-                        comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)imuBuf, imuCount * sizeof(DataXYZ));
-                        imu->fifoFlushUnprotected();
-                    }
-                    imu->unlock();
-
-                    PressureRepository* pres = PressureRepository::getInstance();
-                    pres->lock();
-                    uint16_t presCount = 0;
-                    const float* presBuf = pres->getLinearBufferUnprotected(&presCount);
-                    if (presBuf != nullptr && presCount > 0) {
-                        comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)presBuf, presCount * sizeof(float));
-                        pres->fifoFlushUnprotected();
-                    }
-                    pres->unlock();
-
-                    float temp = TemperatureRepository::getInstance()->getTemp();
-                    comm->sendPayload(MSG_TEMPERATURE, (const uint8_t*)&temp, sizeof(float));
-                    break;
-                }
-                case CMD_TX_TEMPERATURE: {
-                    float temp = TemperatureRepository::getInstance()->getTemp();
-                    comm->sendPayload(MSG_TEMPERATURE, (uint8_t*)&temp, sizeof(float));
-                    break;
-                }
-                case CMD_TX_ALARM: {
-                    uint8_t alarm_id = (uint8_t)msg.flags;
-                    comm->sendPayload(MSG_ALARM, &alarm_id, sizeof(uint8_t));
-                    break;
-                }
-                case CMD_TX_WARNING: {
-                    uint8_t warning_id = (uint8_t)msg.flags;
-                    comm->sendPayload(MSG_WARNING, &warning_id, sizeof(uint8_t));
-                    break;
-                }
-                case CMD_TX_METRICS: {
-                    // El payload ya viene en el mensaje (gracias a NotifyTelemetryTask)
-                    // Para ser seguros, si viene un puntero valido lo enviamos directo
-                    if (msg.payload_ptr != nullptr && msg.payload_len > 0) {
-                        comm->sendPayload(MSG_METRICS, (uint8_t*)msg.payload_ptr, msg.payload_len);
-                    }
-                    break;
-                }
-                case CMD_TX_BATTERY_DATA: {
-                    if (msg.payload_ptr != nullptr && msg.payload_len > 0) {
-                        comm->sendPayload(MSG_BATTERY_DATA, (uint8_t*)msg.payload_ptr, msg.payload_len);
-                    }
-                    break;
-                }
-                case CMD_TX_KEEP_ALIVE: {
-                    comm->sendPayload(MSG_KEEP_ALIVE, nullptr, 0);
-                    break;
-                }
-                case CMD_TX_PANIC_BTN_PRESS: {
-                    comm->sendPayload(MSG_PANIC_BTN_PRESS, nullptr, 0);
-                    break;
-                }
-                case CMD_TX_NOTIF_BTN_PRESS: {
-                    comm->sendPayload(MSG_NOTIF_BTN_PRESS, nullptr, 0);
-                    break;
-                }
-                case EVT_RX_PACKET:
-                    handleRxPacket();
-                    break;
-                default:
-                    break;
+            // 1. Recepción (RX): siempre procesar para permitir el handshake MSG_AUTH
+            if (msg.event_id == EVT_RX_PACKET) {
+                handleRxPacket();
             }
+            // 2. Transmisión (TX): switch limpio y directo sin if internos
+            else if (_is_authenticated) {
+                switch (msg.event_id) {
+                    case CMD_TX_IMU_BUFFER: {
+                        ImuRepository* imu = ImuRepository::getInstance();
+                        imu->lock();
+                        uint16_t count = 0;
+                        const DataXYZ* buf = imu->getLinearBufferUnprotected(&count);
+                        if (buf != nullptr && count > 0) {
+                            comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)buf, count * sizeof(DataXYZ));
+                            imu->fifoFlushUnprotected();
+                        }
+                        imu->unlock();
+                        break;
+                    }
+                    case CMD_TX_PRESSURE_BUFFER: {
+                        PressureRepository* pres = PressureRepository::getInstance();
+                        pres->lock();
+                        uint16_t count = 0;
+                        const float* buf = pres->getLinearBufferUnprotected(&count);
+                        if (buf != nullptr && count > 0) {
+                            comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)buf, count * sizeof(float));
+                            pres->fifoFlushUnprotected();
+                        }
+                        pres->unlock();
+                        break;
+                    }
+                    case CMD_TX_FALL_SENSORS: {
+                        ImuRepository* imu = ImuRepository::getInstance();
+                        imu->lock();
+                        uint16_t imuCount = 0;
+                        const DataXYZ* imuBuf = imu->getLinearBufferUnprotected(&imuCount);
+                        if (imuBuf != nullptr && imuCount > 0) {
+                            comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)imuBuf, imuCount * sizeof(DataXYZ));
+                            imu->fifoFlushUnprotected();
+                        }
+                        imu->unlock();
 
-            // Validar si el envío demoró más que la ventana de impacto (en segundos)
-            float elapsed_sec = (millis() - t_start_ms) / 1000.0f;
-            float threshold_sec = (float)IMPACT_WINDOW_SIZE / (float)FREQ_IMU;
-            if (elapsed_sec > threshold_sec) {
-                DEBUG_PRINT("[CommLinkTask] ALERTA: Envio demorado! Tiempo (s): "); DEBUG_PRINT(elapsed_sec);
-                DEBUG_PRINT(" > Umbral (s): "); DEBUG_PRINTLN(threshold_sec);
-                notifyTask<SystemTask>(SystemTask::EVT_TX_DELAYED);
+                        PressureRepository* pres = PressureRepository::getInstance();
+                        pres->lock();
+                        uint16_t presCount = 0;
+                        const float* presBuf = pres->getLinearBufferUnprotected(&presCount);
+                        if (presBuf != nullptr && presCount > 0) {
+                            comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)presBuf, presCount * sizeof(float));
+                            pres->fifoFlushUnprotected();
+                        }
+                        pres->unlock();
+
+                        float temp = TemperatureRepository::getInstance()->getTemp();
+                        comm->sendPayload(MSG_TEMPERATURE, (const uint8_t*)&temp, sizeof(float));
+                        break;
+                    }
+                    case CMD_TX_TEMPERATURE: {
+                        float temp = TemperatureRepository::getInstance()->getTemp();
+                        comm->sendPayload(MSG_TEMPERATURE, (uint8_t*)&temp, sizeof(float));
+                        break;
+                    }
+                    case CMD_TX_ALARM: {
+                        uint8_t alarm_id = (uint8_t)msg.flags;
+                        comm->sendPayload(MSG_ALARM, &alarm_id, sizeof(uint8_t));
+                        break;
+                    }
+                    case CMD_TX_WARNING: {
+                        uint8_t warning_id = (uint8_t)msg.flags;
+                        comm->sendPayload(MSG_WARNING, &warning_id, sizeof(uint8_t));
+                        break;
+                    }
+                    case CMD_TX_METRICS: {
+                        if (msg.payload_ptr != nullptr && msg.payload_len > 0) {
+                            comm->sendPayload(MSG_METRICS, (uint8_t*)msg.payload_ptr, msg.payload_len);
+                        }
+                        break;
+                    }
+                    case CMD_TX_BATTERY_DATA: {
+                        if (msg.payload_ptr != nullptr && msg.payload_len > 0) {
+                            comm->sendPayload(MSG_BATTERY_DATA, (uint8_t*)msg.payload_ptr, msg.payload_len);
+                        }
+                        break;
+                    }
+                    case CMD_TX_KEEP_ALIVE: {
+                        comm->sendPayload(MSG_KEEP_ALIVE, nullptr, 0);
+                        break;
+                    }
+                    case CMD_TX_PANIC_BTN_PRESS: {
+                        comm->sendPayload(MSG_PANIC_BTN_PRESS, nullptr, 0);
+                        break;
+                    }
+                    case CMD_TX_NOTIF_BTN_PRESS: {
+                        comm->sendPayload(MSG_NOTIF_BTN_PRESS, nullptr, 0);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+
+                // Validar si el envío demoró más que la ventana de impacto (en segundos)
+                float elapsed_sec = (millis() - t_start_ms) / 1000.0f;
+                float threshold_sec = (float)IMPACT_WINDOW_SIZE / (float)FREQ_IMU;
+                if (elapsed_sec > threshold_sec) {
+                    DEBUG_PRINT("[CommLinkTask] ALERTA: Envio demorado! Tiempo (s): "); DEBUG_PRINT(elapsed_sec);
+                    DEBUG_PRINT(" > Umbral (s): "); DEBUG_PRINTLN(threshold_sec);
+                    notifyTask<SystemTask>(SystemTask::EVT_TX_DELAYED);
+                }
+            }
+            // 3. Estado no autenticado: drenar buffers de sensores para evitar desbordes de memoria
+            else {
+                if (msg.event_id == CMD_TX_IMU_BUFFER) {
+                    ImuRepository::getInstance()->fifoFlush();
+                } else if (msg.event_id == CMD_TX_PRESSURE_BUFFER) {
+                    PressureRepository::getInstance()->fifoFlush();
+                } else if (msg.event_id == CMD_TX_FALL_SENSORS) {
+                    ImuRepository::getInstance()->fifoFlush();
+                    PressureRepository::getInstance()->fifoFlush();
+                }
             }
         }
 
         // Atiende eventos GATT, MTU, descubrimiento y conexion continuamente
         comm->processBleEvents();   // Llama a BLE.poll()
+
+        // Monitoreo de conexion y watchdog de autenticacion
+        bool currently_connected = comm->isConnected();
+        if (currently_connected && !_was_connected) {
+            _was_connected = true;
+            _is_authenticated = false;
+            _auth_attempts = 0;
+            _auth_timer_start_ms = millis();
+            Serial.println("[CommLinkTask] Central conectado. Esperando autenticacion UID...");
+        } else if (!currently_connected && _was_connected) {
+            _was_connected = false;
+            _is_authenticated = false;
+            _auth_attempts = 0;
+            _auth_timer_start_ms = 0;
+            Serial.println("[CommLinkTask] Central desconectado. Sesion reseteada.");
+        }
+
+        if (currently_connected && !_is_authenticated) {
+            if (millis() - _auth_timer_start_ms >= BLE_AUTH_TIMEOUT_MS) {
+                Serial.println("[CommLinkTask] Timeout de autenticacion expirado (10s). Desconectando...");
+                comm->disconnect();
+                _is_authenticated = false;
+                _auth_attempts = 0;
+                nicla::leds.setColor(blue);
+            }
+        }
     }
 }
 
@@ -158,20 +196,61 @@ void CommLinkTask::handleRxPacket() {
     }
 
     Serial.println("[CommLinkTask] Paquete RX Recibido");
-    // Serial.print("Raw Bytes: [0x");
-    // if (_rx_packet.type < 16) Serial.print("0");
-    // Serial.print(_rx_packet.type, HEX);
-    // for (int i = 0; i < _rx_packet.length; i++) {
-    //     Serial.print(", 0x");
-    //     if (_rx_packet.payload[i] < 16) Serial.print("0");
-    //     Serial.print(_rx_packet.payload[i], HEX);
-    // }
-    // Serial.println("]");
+
+    if (_rx_packet.type == MSG_AUTH) {
+        handleAuthPacket(_rx_packet.payload, _rx_packet.length);
+        return;
+    }
+
+    if (!_is_authenticated) {
+        Serial.println("[CommLinkTask] ALERTA: Paquete descartado (Dispositivo no autenticado)");
+        return;
+    }
 
     if (_rx_packet.type == MSG_ACK && _rx_packet.length >= 2) {
         MsgType ackedMsg = static_cast<MsgType>(_rx_packet.payload[0]);
         uint8_t status   = _rx_packet.payload[1];
         handleAck(ackedMsg, status);
+    }
+}
+
+void CommLinkTask::handleAuthPacket(const uint8_t* payload, uint16_t length) {
+    BleDriver* comm = BleDriver::getInstance();
+    const char* expected_uid = BRACELET_UID;
+    size_t expected_len = strlen(expected_uid);
+
+    Serial.print("[CommLinkTask] MSG_AUTH recibido. Longitud: ");
+    Serial.println(length);
+
+    bool match = (length == expected_len) && (memcmp(payload, expected_uid, expected_len) == 0);
+
+    if (match) {
+        Serial.println("[CommLinkTask] Autenticacion EXITOSA. UID correcto.");
+        _is_authenticated = true;
+        _auth_attempts = 0;
+        _auth_timer_start_ms = 0;
+        nicla::leds.setColor(green);
+
+        uint8_t ack_payload[2] = { static_cast<uint8_t>(MSG_AUTH), 0x00 };
+        comm->sendPayload(MSG_ACK, ack_payload, sizeof(ack_payload));
+    } else {
+        _auth_attempts++;
+        Serial.print("[CommLinkTask] Autenticacion FALLIDA (Intento ");
+        Serial.print(_auth_attempts);
+        Serial.print(" de ");
+        Serial.print(BLE_AUTH_MAX_ATTEMPTS);
+        Serial.println(")");
+
+        uint8_t ack_payload[2] = { static_cast<uint8_t>(MSG_AUTH), 0x01 };
+        comm->sendPayload(MSG_ACK, ack_payload, sizeof(ack_payload));
+
+        if (_auth_attempts >= BLE_AUTH_MAX_ATTEMPTS) {
+            Serial.println("[CommLinkTask] Maximo de intentos fallidos alcanzado. Desconectando central...");
+            comm->disconnect();
+            _is_authenticated = false;
+            _auth_attempts = 0;
+            nicla::leds.setColor(blue);
+        }
     }
 }
 

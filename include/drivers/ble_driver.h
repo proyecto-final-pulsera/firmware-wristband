@@ -101,4 +101,10 @@ public:
 
     // Publicar batería en el servicio estándar
     void updateBatteryLevel(uint8_t level);
+
+    /// Desconecta activamente la conexión BLE actual si existe
+    void disconnect();
+
+    /// Retorna verdadero si hay un central BLE conectado
+    bool isConnected();
 };

@@ -362,3 +362,44 @@ Al extender o interactuar con clases tipo Repositorio (`ImuRepository`, `Pressur
    Nunca debe llamarse a un método protegido estándar (ej. `fifoFlush()`) después de haber ejecutado `repo->lock()`. En Mbed OS / RTX5, si el Mutex no está configurado como recursivo, esto provocará un **Deadlock (bloqueo mutuo permanente)** inmediato de la tarea.
 4. **Minimizar el Tiempo de Retención del Mutex:**
    El envío a través de `sendPayload()` dentro del bloque de lock detiene temporalmente la absorción de muestras en `AlarmsEventsTask`. La tasa de baudios de UART y la eficiencia de la interfaz deben ser lo suficientemente altas para que la transmisión concluya antes de que la FIFO de hardware del BHI260AP (~14 KB) se desborde.
+
+
+## 12. Protocolo de Autenticación BLE y Vinculación Segura (Zero-Flash Writes)
+
+### 12.1 Motivación y Estrategia Zero-Flash Wear
+
+Para salvaguardar la vida útil de la memoria Flash del SoC nRF52832 y evitar bloqueos o corrupción en tiempo de ejecución causados por cortes imprevistos de alimentación (wear leveling, riesgos de Brown-Out durante escrituras flash), se implementó un mecanismo de **vinculación por UID único hardcodeado en firmware**.
+
+* **Identificador en Firmware:** Cada unidad compila con una directiva única en `include/app/config.h` (ej. `#define BRACELET_UID "WB-001"`).
+* **Vinculación vía App:** La aplicación móvil obtiene el UID escaneando el código QR impreso en el hardware o mediante ingreso manual por el usuario. Al conectar por BLE, la app debe negociar la autenticación antes de tener acceso a los datos del dispositivo.
+* **Cero Desgaste:** No se realiza ninguna operación I/O sobre memoria no volátil en runtime; el consumo en SRAM es de tan solo 8 bytes estáticos para banderas y temporizadores de sesión.
+
+### 12.2 Estructura del Protocolo (`MSG_AUTH = 0x0B`)
+
+Tanto en el firmware (`comm_driver.h`) como en la aplicación móvil (`ble_constants.dart`), se utiliza el comando `0x0B`:
+
+* **Paquete de Autenticación (`MSG_AUTH`):**
+  * Byte 0: `0x0B` (`MSG_AUTH`)
+  * Bytes 1..N: Cadena ASCII del UID (ej. `"WB-001"`)
+* **Paquete de Respuesta (`MSG_ACK`):**
+  * Byte 0: `0x00` (`MSG_ACK`)
+  * Byte 1: `0x0B` (`ackedMsg = MSG_AUTH`)
+  * Byte 2: `0x00` (Éxito / Autorizado) ó `0x01` (NACK / Intento Fallido)
+
+### 12.3 Máquina de Estados y Señalización Visual (LED RGB)
+
+| Estado | LED | Comportamiento del Firmware |
+| :--- | :--- | :--- |
+| **DISCONNECTED** | **Azul** | Publicidad BLE activa. Sesión reseteada (`_is_authenticated = false`, `_auth_attempts = 0`). |
+| **PENDING_AUTH** | **Amarillo** | Conexión física establecida. Se inicia el temporizador de guardia (10 s). La pulsera no emite telemetría y descarta paquetes no autorizados. |
+| **AUTHENTICATED** | **Verde** | UID verificado con éxito. Cancela temporizador de guardia, resetea intentos y habilita el despacho de telemetría de sensores, métricas y alarmas. |
+
+### 12.4 Política de Reintentos y Seguridad (Gatekeeper)
+
+1. **Límite de 3 Intentos (`BLE_AUTH_MAX_ATTEMPTS = 3`):**
+   * Si la app transmite un UID erróneo en los intentos 1 o 2, la pulsera responde `MSG_ACK(0x0B, 0x01)` y se mantiene en espera del siguiente intento.
+   * Al alcanzar el 3er fallo consecutivo, la pulsera emite el NACK, aborta la sesión ejecutando `BleDriver::disconnect()`, y regresa el LED a Azul.
+2. **Watchdog de Autenticación (`BLE_AUTH_TIMEOUT_MS = 10000`):**
+   * Si transcurren 10 segundos desde la conexión sin completar exitosamente el handshake, el firmware fuerza la desconexión para no dejar enlaces abiertos a dispositivos extraños.
+3. **Drenaje Seguro de FIFOs en Desconexión/Espera:**
+   * Cuando `_is_authenticated == false`, los comandos de transmisión periódicos (`CMD_TX_IMU_BUFFER`, etc.) ejecutan `fifoFlushUnprotected()` de forma controlada para vaciar los buffers locales sin filtrar paquetes al aire ni saturar la memoria RAM.

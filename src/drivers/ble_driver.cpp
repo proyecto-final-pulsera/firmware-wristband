@@ -187,7 +187,7 @@ void BleDriver::onBleWrite(BLEDevice central, BLECharacteristic characteristic) 
 void BleDriver::onBleConnect(BLEDevice central) {
     Serial.print("[BLE_Driver] App conectada. MAC: ");
     Serial.println(central.address());
-    nicla::leds.setColor(green); // Verde indica conectado
+    nicla::leds.setColor(yellow); // Amarillo indica conectado esperando autenticacion UID
 }
 
 void BleDriver::onBleDisconnect(BLEDevice central) {
@@ -240,4 +240,14 @@ void BleDriver::setTxPower(int8_t power_dbm) {
             break;
     }
     NRF_RADIO->TXPOWER = reg_val;
+}
+
+void BleDriver::disconnect() {
+    if (BLE.connected()) {
+        BLE.disconnect();
+    }
+}
+
+bool BleDriver::isConnected() {
+    return BLE.connected();
 }

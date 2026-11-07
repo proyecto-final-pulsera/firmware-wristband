@@ -33,8 +33,14 @@ private:
     CommPacket _rx_packet;
     uint8_t _retry_counts[16] = {0};
 
+    bool _is_authenticated = false;
+    uint8_t _auth_attempts = 0;
+    uint32_t _auth_timer_start_ms = 0;
+    bool _was_connected = false;
+
     // Métodos privados de procesamiento de recepción (RX)
     void handleRxPacket();
+    void handleAuthPacket(const uint8_t* payload, uint16_t length);
     void handleAck(MsgType ackedMsg, uint8_t status);
     void dispatchRetry(MsgType type);
 
@@ -70,6 +76,8 @@ public:
         CMD_TX_NOTIF_BTN_PRESS = 0x0C,
         EVT_RX_PACKET          = 0x20
     };
+
+    bool isAuthenticated() const { return _is_authenticated; }
 
     static CommLinkTask& getInstance() {
         static CommLinkTask instance;

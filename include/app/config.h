@@ -42,6 +42,16 @@
 #define NUM_PROCESS_POST_NOMOTION 10
 
 // =============================================================================
+// --- Configuración de Autenticación BLE (Zero Flash Writes) ---
+// =============================================================================
+#ifndef BRACELET_UID
+#define BRACELET_UID "SB-001"
+#endif
+
+#define BLE_AUTH_TIMEOUT_MS   10000 // 10 segundos para completar autenticacion
+#define BLE_AUTH_MAX_ATTEMPTS 3     // Maximo de intentos fallidos antes de desconectar
+
+// =============================================================================
 // --- Configuración de Colas RTOS (Mailbox) ---
 // =============================================================================
 #ifndef TASK_QUEUE_SIZE
