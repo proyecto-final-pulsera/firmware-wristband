@@ -8,25 +8,38 @@
 #define FREQ_IMU 50
 #endif
 
-// Latencia del buffer de hardware del IMU (en milisegundos, 3 segundos)
-#define LATENCIA_IMU 3000
+// Latencia del buffer de hardware del IMU (en milisegundos, 2 segundos)
+#define LATENCIA_IMU 2000
 
-// Longitud del buffer del IMU (en segundos)
+// Longitud de los buffers de sensores (en segundos)
 #ifndef LEN_BUFFER_IMU_SEG
-#define LEN_BUFFER_IMU_SEG 16
+#define LEN_BUFFER_IMU_SEG 12
 #endif
 
-// Tamaño del buffer de IMU.
+#ifndef LEN_BUFFER_PRESSURE_SEG
+#define LEN_BUFFER_PRESSURE_SEG 12
+#endif
+
+// Frecuencia de muestreo del Barómetro / Presión (en Hz)
+#ifndef FREQ_PRESSURE
+#define FREQ_PRESSURE 16
+#endif
+
+// Tamaño de los buffers circulares (FIFOs)
 #define IMU_FIFO_SIZE (FREQ_IMU * LEN_BUFFER_IMU_SEG)
+#define PRESSURE_FIFO_SIZE (FREQ_PRESSURE * LEN_BUFFER_PRESSURE_SEG)
 
 // Tamaño de la ventana donde se procesa la posible caida.
-#define IMPACT_WINDOW_SIZE 300 // 6 segundos a 50 Hz
+#define IMPACT_WINDOW_SIZE 200 // 4 segundos a 50 Hz
 
 // Duracion de la ventana de impacto (en segundos) para umbral de retardo en envios
 #define IMPACT_WINDOW_TIME_SEC ((float)IMPACT_WINDOW_SIZE / (float)FREQ_IMU)
 
 // Posicion a partir de la cual se obtiene la ventana de procesamiento.
 #define START_IMPACT_WINDOW_INDEX ((IMU_FIFO_SIZE / 2) - (IMPACT_WINDOW_SIZE / 2))
+
+// Posicion de la ventana intermedia para procesamiento en WAKEUP (50% de solapamiento entre ventana inicial y central)
+#define INTERMEDIATE_IMPACT_WINDOW_INDEX (START_IMPACT_WINDOW_INDEX / 2)
 
 // Tamaño de la media movil que recorre la ventana de impacto (se calcula a partir del shift).
 #define SLIDING_WINDOW_SHIFT 3 // Shift para promediar con bitshift

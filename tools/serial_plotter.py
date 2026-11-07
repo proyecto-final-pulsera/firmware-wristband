@@ -1,6 +1,7 @@
 import serial
 import struct
 import matplotlib.pyplot as plt
+import time
 
 # Identificadores de nuestro protocolo
 START_BYTE = 0xAA

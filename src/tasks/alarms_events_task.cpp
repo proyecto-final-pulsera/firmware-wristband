@@ -166,15 +166,24 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
 
     uint8_t fall_flags = 0;
 
-    // Procesamiento del inicio del buffer en caso de WAKEUP
+    // Procesamiento de las ventanas inicial e intermedia en caso de WAKEUP
     if (process_preFall) {
+        // Etapa 1: Ventana inicial desde el inicio del buffer (muestras 0 a IMPACT_WINDOW_SIZE - 1)
         uint16_t len = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, 0);
         if (len != 0) {
             fall_flags |= evaluateWindow(_imu_window_buffer, len);
         }
+
+        // Etapa 2: Ventana intermedia (toma la mitad de muestras de la ventana inicial y mitad de la central)
+        if (fall_flags != FLAG_FALL_DETECTED) {
+            uint16_t len_mid = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, INTERMEDIATE_IMPACT_WINDOW_INDEX);
+            if (len_mid != 0) {
+                fall_flags |= evaluateWindow(_imu_window_buffer, len_mid);
+            }
+        }
     }
 
-    // Segunda etapa (o única si no es wakeup): ventana del medio
+    // Etapa 3 (o única si no es wakeup): Ventana central
     if (fall_flags != FLAG_FALL_DETECTED) {
         uint16_t len = imu->copyFifoValues(_imu_window_buffer, IMPACT_WINDOW_SIZE, START_IMPACT_WINDOW_INDEX);
         if (len != 0) {
