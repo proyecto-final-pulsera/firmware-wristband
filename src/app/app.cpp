@@ -55,8 +55,11 @@ void isr_notif_button() {
     }
 }
 
-void onRxReceived(){
-    return;
+void onRxReceived() {
+    AppMessage msg;
+    msg.event_id = CommLinkTask::EVT_RX_PACKET;
+    msg.emisor_id = TASK_ISR_ROUTINE;
+    CommLinkTask::getInstance().sendMsg(&msg);
 }
 
 // ============================================================================
@@ -71,42 +74,40 @@ void App::init() {
     // en un Heap 100% contiguo y libre de fragmentación.
     BleDriver* bleComm = BleDriver::getInstance();
     bleComm->init();
+    bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
 
-    Serial.println("BLE Configurado correctamente.");
-    Serial.println("Esperando conexión desde el smartphone...");
+    Serial.println("[Init - BLE] BLE Configurado correctamente.");
+    Serial.println("[Init - BLE] Esperando conexión desde el smartphone...");
 
     // Vibrador 
     VibratorDriver* vibrator = VibratorDriver::getInstance();
     vibrator->init();
-    Serial.println("INIT Vibrator");
+    Serial.println("[Init - Vibrator OK]");
 
     // PMIC (Bateri­a)
     BatteryDriver* battery = BatteryDriver::getInstance();
     battery->init();
-    Serial.println("INIT Battery");    
+    Serial.println("[Init - Battery OK]");    
 
     // Sensor Principal BHI260
     BHI260Driver* bhi260 = BHI260Driver::getInstance();
     bhi260->init();
     bhi260->configureInterrupt(isr_bhi260);
-    Serial.println("INIT BHI");
+    Serial.println("[Init - BHI OK]");
 
     // Interfaz LED
     LedDriver* led = LedDriver::getInstance();
     led->init();
-    Serial.println("INIT Led");
+    Serial.println("[Init - Led OK]");
 
     PanicButton* panicBtn = PanicButton::getInstance();
     panicBtn->setIrqHandler(isr_panic_button);
 
     NotifButton* notifBtn = NotifButton::getInstance();
     notifBtn->setIrqHandler(isr_notif_button);
-    Serial.println("INIT Buttons");
+    Serial.println("[Init - Buttons OK]");
 
-    // bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
-    // bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
-
-    Serial.println("INIT FLAG 01: Drivers OK.");
+    Serial.println("[Init - FLAG 01] Drivers OK.");
 
     // ------------------------------------------------------------------------
     // 1.5 Inicializar Repositorios de Sensores
@@ -121,7 +122,7 @@ void App::init() {
     NoMotionRepository::getInstance()->begin(1.0f, 0);
     StepCounterRepository::getInstance()->begin(1.0f, (uint32_t)-1);
     
-    Serial.println("INIT FLAG 01.5: Repositories OK.");      
+    Serial.println("[Init - FLAG 01.5] Repositories OK.");      
 
     // ------------------------------------------------------------------------
     // 2. Levantar las Tareas (Threads) del RTOS
@@ -133,7 +134,7 @@ void App::init() {
     PmicTask::getInstance().init();
     AlarmsEventsTask::getInstance().init();
     SystemTask::getInstance().init();
-    Serial.println("INIT FLAG 02: All Tasks started.");
+    Serial.println("[Init - FLAG 02] All Tasks started.");
 
     // ------------------------------------------------------------------------
     // 3. Habilitar Interrupciones (Post-RTOS)
@@ -146,6 +147,7 @@ void App::init() {
 
     panicBtn->enableInterrupt();
     notifBtn->enableInterrupt();
+    bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
     // serialDriver->attachRxInterrupt();
-    Serial.println("INIT FLAG 03: Interrupts Enabled."); 
+    Serial.println("[Init - FLAG 03] Interrupts Enabled."); 
 }

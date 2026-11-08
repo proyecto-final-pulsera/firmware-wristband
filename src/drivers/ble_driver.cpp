@@ -57,11 +57,8 @@ void BleDriver::init() {
 
     BLE.advertise();
 
-    // Hack de bajo nivel: Forzar la potencia de transmisión de la radio al máximo (+4 dBm)
-    // Por algun motivo no tiene el #define RADIO_TXPOWER_TXPOWER_Pos8dBm en los archivos de nRF
-    // El chip nRF52840 (NINA-B306) lo soporta nativamente.
-    // Escribimos directamente en el registro hardware del microcontrolador saltándonos la librería.
-    NRF_RADIO->TXPOWER = (RADIO_TXPOWER_TXPOWER_Pos4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+    // Configurar potencia de transmisión de la antena (por defecto al máximo: +4 dBm)
+    setTxPower(TxPower::POS_4_DBM);
 }
 
 void BleDriver::attachRxInterrupt() {
@@ -89,39 +86,38 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
 
     if (!BLE.connected())
         return false;
-        
-    if (_txState != TxState::IDLE) {
-        return false; // El motor está ocupado despachando fragmentos anteriores
-    }
 
     if (len <= BLE_MTU_PAYLOAD - 1) {
         // Envío Directo (Sin fragmentar) -> [MsgType] [Payload...]
+        // Los mensajes prioritarios simples pueden despacharse de inmediato sin interferir con la fragmentación
         _txPacketBuffer[0] = type;
         if (len > 0 && payload != nullptr) {
             memcpy(&_txPacketBuffer[1], payload, len);
         }
-        _txCharacteristic->writeValue(_txPacketBuffer, len + 1);
-        return true;
+        return _txCharacteristic->writeValue(_txPacketBuffer, len + 1);
     } else {
-        // Envío Fragmentado -> Pasa al motor asíncrono
+        // Envío Fragmentado: Solo una ráfaga multi-paquete activa a la vez
+        if (_txState != TxState::IDLE) {
+            return false; // El motor ya está ocupado despachando fragmentos anteriores
+        }
+
+        // Configurar motor asíncrono (NO BLOQUEANTE)
         _txState = TxState::TX_EN_PROGRESO;
         _currentTxMsgType = type;
         _txBuffer = payload;
         _txBufferLen = len;
         _txOffset = 0;
         _chunkSequence = 0;
-        
-        // Calculamos el total de fragmentos. Header es de 6 bytes, nos quedan 14 libres por chunk
+
         uint16_t maxSizePerChunk = BLE_MTU_PAYLOAD - 6;
         _totalChunks = (len + maxSizePerChunk - 1) / maxSizePerChunk;
-        
+
         // Calcular CRC8 global de todo el payload
         _globalCrc = calculateCRC8(payload, len);
-        
-        while(_txState == TxState::TX_EN_PROGRESO){
-            processBleEvents();
-            rtos::ThisThread::sleep_for(std::chrono::milliseconds(20));
-        }
+
+        // Despachar el primer fragmento (Chunk 0) inmediatamente.
+        // Los siguientes fragmentos se despacharán asíncronamente en processBleEvents()
+        processBleEvents();
         return true;
     }
 }
@@ -189,9 +185,9 @@ void BleDriver::onBleWrite(BLEDevice central, BLECharacteristic characteristic) 
 }
 
 void BleDriver::onBleConnect(BLEDevice central) {
-    Serial.print("App conectada. MAC: ");
+    Serial.print("[BLE_Driver] App conectada. MAC: ");
     Serial.println(central.address());
-    nicla::leds.setColor(green); // Verde indica conectado
+    nicla::leds.setColor(yellow); // Amarillo indica conectado esperando autenticacion UID
 }
 
 void BleDriver::onBleDisconnect(BLEDevice central) {
@@ -199,7 +195,59 @@ void BleDriver::onBleDisconnect(BLEDevice central) {
     BleDriver* instance = getInstance();
     instance->_txState = TxState::IDLE;
 
-    Serial.print("App desconectada. MAC: ");
+    Serial.print("[BLE_Driver] App desconectada. MAC: ");
     Serial.println(central.address());
     nicla::leds.setColor(blue); // Vuelve a azul para indicar desconectado/esperando
+}
+
+// ==================================================================
+// Potencia de Transmisión de Antena (TX Power)
+// ==================================================================
+void BleDriver::setTxPower(TxPower power) {
+    setTxPower(static_cast<int8_t>(power));
+}
+
+void BleDriver::setTxPower(int8_t power_dbm) {
+    uint32_t reg_val;
+    switch (power_dbm) {
+        case 4:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Pos4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case 0:
+            reg_val = (RADIO_TXPOWER_TXPOWER_0dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -4:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -8:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg8dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -12:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg12dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -16:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg16dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -20:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg20dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        case -40:
+            reg_val = (RADIO_TXPOWER_TXPOWER_Neg40dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+        default:
+            // Por defecto máxima potencia de transmisión (+4 dBm)
+            reg_val = (RADIO_TXPOWER_TXPOWER_Pos4dBm << RADIO_TXPOWER_TXPOWER_Pos);
+            break;
+    }
+    NRF_RADIO->TXPOWER = reg_val;
+}
+
+void BleDriver::disconnect() {
+    if (BLE.connected()) {
+        BLE.disconnect();
+    }
+}
+
+bool BleDriver::isConnected() {
+    return BLE.connected();
 }

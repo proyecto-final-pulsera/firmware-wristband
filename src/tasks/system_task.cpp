@@ -238,6 +238,7 @@ void SystemTask::updateButtonsMde() {
             // TODO notificar boton Presionado y no envio de sensores. Nota Quiza es una buena idea pasar los datos para procesarlos.
             notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
             notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_PANIC_BTN_PRESS);
         }
 
         if (panicBtn->isIdle()) {
@@ -255,6 +256,7 @@ void SystemTask::updateButtonsMde() {
             notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_VIBRATOR_CONTINUOUS, TASK_SYSTEM, PRIORITY_NORMAL, VIB_DURATION_2S);
             notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
             notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
+            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_NOTIF_BTN_PRESS);
         }
 
         if (notifBtn->isIdle()) {
