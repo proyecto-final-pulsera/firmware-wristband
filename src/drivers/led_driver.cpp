@@ -10,7 +10,10 @@ LedDriver::LedDriver() : _ledState(false), _ledColor(RGBColors::off) {
 
 void LedDriver::init() {
     nicla::leds.begin();
-    nicla::leds.setColor(RGBColors::off);
+    // Estado inicial: Azul encendido (indica esperando conexión BLE)
+    _ledColor = RGBColors::blue;
+    _ledState = true;
+    nicla::leds.setColor(RGBColors::blue);
 }
 
 void LedDriver::setLedState(bool active) {

@@ -9,13 +9,16 @@
 #include "drivers/button_driver.h"
 #include "utils/debug.h"
 #include "Arduino_BHY2.h"
+#include "drivers/battery_driver.h"
 extern BoschSensortec sensortec;
 
 void SystemTask::init() {
-    // Inicializar hardware, configuraciones previas al inicio, etc.
-    
-    // Iniciar el hilo asociado al metodo run de esta instancia
-    _thread.start(mbed::callback(this, &SystemTask::run));
+    osStatus stat = _thread.start(mbed::callback(this, &SystemTask::run));
+    if (stat != osOK) {
+        Serial.print("[ERROR] SystemTask: Fallo al iniciar hilo (codigo ");
+        Serial.print((int)stat);
+        Serial.println(" - Memoria insuficiente)");
+    }
 }
 
 bool SystemTask::sendMsg(AppMessage* msg) {

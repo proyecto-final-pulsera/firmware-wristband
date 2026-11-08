@@ -4,15 +4,27 @@
 
 
 #include <ArduinoBLE.h>
+#include <Nicla_System.h>
 
 void setup() {
     Serial.begin(115200);
     
+    while(!Serial);
+
+    Serial.println("\n=== Iniciando Entorno de Prueba: BleDriver ===");
+
+    // Inicializar el sistema base de Nicla (necesario para BLE y sensores)
+    nicla::begin();
+    nicla::leds.begin();
+    nicla::leds.setColor(blue); // Azul indica inicializando/desconectado
+
     App::init();
 }
 
 void loop() {
-    rtos::ThisThread::sleep_for(std::chrono::milliseconds(50));
+    // rtos::ThisThread::sleep_for(std::chrono::milliseconds(50));
+    //BLE.poll();
+    delay(10);
 }
 
 

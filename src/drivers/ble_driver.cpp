@@ -1,4 +1,5 @@
 #include "drivers/ble_driver.h"
+#include <mbed.h>
 
 // UUIDs Base (Custom Communication Service)
 #define BLE_COMM_SERVICE_UUID "19B10000-E8F2-537E-4F6C-D104768A1214"
@@ -36,20 +37,17 @@ void BleDriver::init() {
     _batteryLevelChar = new BLEUnsignedCharCharacteristic("2A19", BLERead | BLENotify); // (Estándar: 0x2A19)
     _batteryService->addCharacteristic(*_batteryLevelChar);
     BLE.addService(*_batteryService);
-
-    // 3. Device Information Service (Estándar: 0x180A)
-    _deviceInfoService = new BLEService("180A");
-    _manufacturerNameChar = new BLEStringCharacteristic("2A29", BLERead, 20); // (Estándar: 0x2a29)
-    _firmwareRevChar = new BLEStringCharacteristic("2A26", BLERead, 10); // (Estándar: 0x2A26)
-    _deviceInfoService->addCharacteristic(*_manufacturerNameChar);
-    _deviceInfoService->addCharacteristic(*_firmwareRevChar);
-    BLE.addService(*_deviceInfoService);
-    
-    // Setear valores fijos
-    _manufacturerNameChar->writeValue("Proyecto_Final");
-    _firmwareRevChar->writeValue("1.0.0");
-    // Aca tendriamos que inyectar el valor medido actual de la bateria en el reset
     _batteryLevelChar->writeValue(100);
+
+    // 3. Device Information Service (Estándar: 0x180A) - Comentado para maximizar holgura en Heap
+    // _deviceInfoService = new BLEService("180A");
+    // _manufacturerNameChar = new BLEStringCharacteristic("2A29", BLERead, 20);
+    // _firmwareRevChar = new BLEStringCharacteristic("2A26", BLERead, 10);
+    // _deviceInfoService->addCharacteristic(*_manufacturerNameChar);
+    // _deviceInfoService->addCharacteristic(*_firmwareRevChar);
+    // BLE.addService(*_deviceInfoService);
+    // _manufacturerNameChar->writeValue("Proyecto_Final");
+    // _firmwareRevChar->writeValue("1.0.0");
 
     // Publicitar solo el servicio custom para que la app sepa conectar
     BLE.setAdvertisedService(*_commService);
@@ -98,12 +96,11 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
 
     if (len <= BLE_MTU_PAYLOAD - 1) {
         // Envío Directo (Sin fragmentar) -> [MsgType] [Payload...]
-        uint8_t packet[BLE_MTU_PAYLOAD];
-        packet[0] = type;
+        _txPacketBuffer[0] = type;
         if (len > 0 && payload != nullptr) {
-            memcpy(&packet[1], payload, len);
+            memcpy(&_txPacketBuffer[1], payload, len);
         }
-        _txCharacteristic->writeValue(packet, len + 1);
+        _txCharacteristic->writeValue(_txPacketBuffer, len + 1);
         return true;
     } else {
         // Envío Fragmentado -> Pasa al motor asíncrono
@@ -123,6 +120,7 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
         
         while(_txState == TxState::TX_EN_PROGRESO){
             processBleEvents();
+            rtos::ThisThread::sleep_for(std::chrono::milliseconds(20));
         }
         return true;
     }
@@ -140,29 +138,28 @@ void BleDriver::processBleEvents() {
         }
 
         uint16_t remaining = _txBufferLen - _txOffset;
-        uint8_t packet[BLE_MTU_PAYLOAD];
-        
         // Estructura Cabecera de Fragmento: [MsgType] [SeqHigh] [SeqLow] [TotalHigh] [TotalLow] [CRC8_Global] [Payload...]
-        packet[0] = _currentTxMsgType;
-        packet[1] = (_chunkSequence >> 8) & 0xFF; // Parte alta
-        packet[2] = _chunkSequence & 0xFF; // Parte baja
-        packet[3] = (_totalChunks >> 8) & 0xFF; // Parte alta
-        packet[4] = _totalChunks & 0xFF; // Parte baja
-        packet[5] = _globalCrc;
+        _txPacketBuffer[0] = _currentTxMsgType;
+        _txPacketBuffer[1] = (_chunkSequence >> 8) & 0xFF; // Parte alta
+        _txPacketBuffer[2] = _chunkSequence & 0xFF; // Parte baja
+        _txPacketBuffer[3] = (_totalChunks >> 8) & 0xFF; // Parte alta
+        _txPacketBuffer[4] = _totalChunks & 0xFF; // Parte baja
+        _txPacketBuffer[5] = _globalCrc;
 
         uint16_t chunkDataLen = BLE_MTU_PAYLOAD - 6;
         if (remaining < chunkDataLen) {
             chunkDataLen = remaining;
         }
 
-        memcpy(&packet[6], &_txBuffer[_txOffset], chunkDataLen);
-        _txCharacteristic->writeValue(packet, chunkDataLen + 6);
+        memcpy(&_txPacketBuffer[6], &_txBuffer[_txOffset], chunkDataLen);
+        if (_txCharacteristic->writeValue(_txPacketBuffer, chunkDataLen + 6)) {
 
         _txOffset += chunkDataLen;
         _chunkSequence++;
 
         if (_txOffset >= _txBufferLen) {
             _txState = TxState::IDLE; // Transmisión completada
+        }
         }
     }
 }
