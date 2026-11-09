@@ -35,4 +35,11 @@ public:
     void processEvents() override;
     bool isConnected() override { return true; }
     void disconnect() override {}
+
+    // -------------------------------------------------------------------------
+    // Estado de Autenticación (Mockup: siempre autenticado)
+    // -------------------------------------------------------------------------
+    bool isAuthenticated() const override { return true; }
+    bool isAuth() const override { return true; }
+    void setAuthenticated(bool auth) override { (void)auth; }
 };

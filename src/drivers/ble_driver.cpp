@@ -1,5 +1,6 @@
 #include "drivers/ble_driver.h"
 #include <mbed.h>
+#include "utils/debug.h"
 
 // UUIDs Base (Custom Communication Service)
 #define BLE_COMM_SERVICE_UUID "19B10000-E8F2-537E-4F6C-D104768A1214"
@@ -186,7 +187,7 @@ void BleDriver::onBleWrite(BLEDevice central, BLECharacteristic characteristic) 
 
 void BleDriver::onBleConnect(BLEDevice central) {
     DEBUG_PRINT("[BLE_Driver] App conectada. MAC: ");
-    DEBUG_PRINTln(central.address());
+    DEBUG_PRINTLN(central.address());
     nicla::leds.setColor(yellow); // Amarillo indica conectado esperando autenticacion UID
 }
 
@@ -196,7 +197,7 @@ void BleDriver::onBleDisconnect(BLEDevice central) {
     instance->_txState = TxState::IDLE;
 
     DEBUG_PRINT("[BLE_Driver] App desconectada. MAC: ");
-    DEBUG_PRINTln(central.address());
+    DEBUG_PRINTLN(central.address());
     nicla::leds.setColor(blue); // Vuelve a azul para indicar desconectado/esperando
 }
 

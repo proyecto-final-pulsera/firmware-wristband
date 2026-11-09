@@ -38,6 +38,7 @@ struct CommPacket {
 
 class CommDriver {
 protected:
+    bool _isAuthenticated = false;
     // Puntero a la función inyectada por la Capa de Aplicación (RTOS)
     void (*_rxNotificationCallback)() = nullptr;
 
@@ -106,6 +107,13 @@ public:
     virtual void processEvents() {}
     virtual bool isConnected() { return true; }
     virtual void disconnect() {}
+
+    // -------------------------------------------------------------------------
+    // Estado de Autenticación
+    // -------------------------------------------------------------------------
+    virtual bool isAuthenticated() const { return _isAuthenticated; }
+    virtual bool isAuth() const { return isAuthenticated(); }
+    virtual void setAuthenticated(bool auth) { _isAuthenticated = auth; }
 
     // -------------------------------------------------------------------------
     // Inyección de Dependencias (Inter-Task)

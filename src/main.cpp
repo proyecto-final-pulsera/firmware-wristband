@@ -17,8 +17,7 @@ void setup() {
 }
 
 void loop() {
-    // rtos::ThisThread::sleep_for(std::chrono::milliseconds(50));
-    // delay(10);
+
     // TODO Checkear que no rompa nada: 
     rtos::ThisThread::sleep_for(osWaitForever);
 }

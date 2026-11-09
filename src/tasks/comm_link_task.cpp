@@ -9,6 +9,11 @@
 #include "utils/debug.h"
 
 void CommLinkTask::init() {
+#ifdef USE_SERIAL_COMM
+    _comm = SerialCommDriver::getInstance();
+#else
+    _comm = BleDriver::getInstance();
+#endif
     osStatus stat = _thread.start(mbed::callback(this, &CommLinkTask::run));
     if (stat != osOK) {
         DEBUG_PRINT("[ERROR] CommLinkTask: Fallo al iniciar hilo (codigo ");
@@ -29,6 +34,7 @@ void CommLinkTask::run() {
 #else
     CommDriver* comm = BleDriver::getInstance();
 #endif
+    _comm = comm;
 
     while (true) {
         // Pacing dinámico: 20 ms si estamos despachando fragmentos asíncronos, 100 ms en reposo
@@ -40,7 +46,7 @@ void CommLinkTask::run() {
                 handleRxPacket(comm);
             }
             // 2. Transmisión (TX)
-            else if (_is_authenticated) {
+            else if (comm->isAuthenticated()) {
                 handleTxCommand(msg, comm);
             }
         }
@@ -50,30 +56,32 @@ void CommLinkTask::run() {
 
         // Monitoreo de conexion y watchdog de autenticacion
         // TODO Mover a la clase de comm:
+    #ifndef USE_SERIAL_COMM
         bool currently_connected = comm->isConnected();
         if (currently_connected && !_was_connected) {
             _was_connected = true;
             _auth_attempts = 0;
-            _is_authenticated = false;
+            comm->setAuthenticated(false);
             _auth_timer_start_ms = millis();
             DEBUG_PRINTLN("[CommLinkTask] Central conectado. Esperando autenticacion UID...");
         } else if (!currently_connected && _was_connected) {
             _was_connected = false;
             _auth_attempts = 0;
             _auth_timer_start_ms = 0;
-            _is_authenticated = false;
+            comm->setAuthenticated(false);
             DEBUG_PRINTLN("[CommLinkTask] Central desconectado. Sesion reseteada.");
         }
 
-        if (currently_connected && !_is_authenticated) {
+        if (currently_connected && !comm->isAuthenticated()) {
             if (millis() - _auth_timer_start_ms >= BLE_AUTH_TIMEOUT_MS) {
                 DEBUG_PRINTLN("[CommLinkTask] Timeout de autenticacion expirado (10s). Desconectando...");
                 comm->disconnect();
-                _is_authenticated = false;
+                comm->setAuthenticated(false);
                 _auth_attempts = 0;
                 LedDriver::getInstance()->setLedColor(RGBColors::blue);
             }
         }
+    #endif
     }
 }
 
@@ -203,7 +211,7 @@ void CommLinkTask::handleRxPacket(CommDriver* comm) {
         return;
     }
 
-    if (!_is_authenticated) {
+    if (!comm->isAuthenticated()) {
         DEBUG_PRINTLN("[CommLinkTask] ALERTA: Paquete descartado (Dispositivo no autenticado)");
         return;
     }
@@ -226,7 +234,7 @@ void CommLinkTask::handleAuthPacket(const uint8_t* payload, uint16_t length, Com
 
     if (match) {
         DEBUG_PRINTLN("[CommLinkTask] Autenticacion EXITOSA. UID correcto.");
-        _is_authenticated = true;
+        comm->setAuthenticated(true);
         _auth_attempts = 0;
         _auth_timer_start_ms = 0;
         LedDriver::getInstance()->setLedColor(RGBColors::green);
@@ -247,7 +255,7 @@ void CommLinkTask::handleAuthPacket(const uint8_t* payload, uint16_t length, Com
         if (_auth_attempts >= BLE_AUTH_MAX_ATTEMPTS) {
             DEBUG_PRINTLN("[CommLinkTask] Maximo de intentos fallidos alcanzado. Desconectando central...");
             comm->disconnect();
-
+            comm->setAuthenticated(false);
             _auth_attempts = 0;
             LedDriver::getInstance()->setLedColor(RGBColors::blue);
         }

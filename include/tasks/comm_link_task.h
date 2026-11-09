@@ -34,7 +34,7 @@ private:
     CommPacket _rx_packet;
     uint8_t _retry_counts[16] = {0};
 
-    bool _is_authenticated = true;
+    CommDriver* _comm = nullptr;
     uint8_t _auth_attempts = 0;
     uint32_t _auth_timer_start_ms = 0;
     bool _was_connected = true;
@@ -79,7 +79,8 @@ public:
         EVT_RX_PACKET          = 0x20
     };
 
-    bool isAuthenticated() const { return _is_authenticated; }
+    bool isAuthenticated() const { return _comm != nullptr ? _comm->isAuthenticated() : false; }
+    bool isAuth() const { return isAuthenticated(); }
 
     static CommLinkTask& getInstance() {
         static CommLinkTask instance;
