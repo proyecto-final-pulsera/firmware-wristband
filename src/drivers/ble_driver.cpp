@@ -95,70 +95,56 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
         if (len > 0 && payload != nullptr) {
             memcpy(&_txPacketBuffer[1], payload, len);
         }
-        return _txCharacteristic->writeValue(_txPacketBuffer, len + 1);
+        bool success = (_txCharacteristic->writeValue(_txPacketBuffer, len + 1) != 0);
+        BLE.poll();
+        return success;
     } else {
-        // Envío Fragmentado: Solo una ráfaga multi-paquete activa a la vez
-        if (_txState != TxState::IDLE) {
-            return false; // El motor ya está ocupado despachando fragmentos anteriores
-        }
-
-        // Configurar motor asíncrono (NO BLOQUEANTE)
-        _txState = TxState::TX_EN_PROGRESO;
-        _currentTxMsgType = type;
-        _txBuffer = payload;
-        _txBufferLen = len;
-        _txOffset = 0;
-        _chunkSequence = 0;
+        // Envío Fragmentado Bloqueante (Síncrono a nivel tarea con pacing RTOS)
+        _isTxInProgress = true;
 
         uint16_t maxSizePerChunk = BLE_MTU_PAYLOAD - 6;
-        _totalChunks = (len + maxSizePerChunk - 1) / maxSizePerChunk;
+        uint16_t totalChunks = (len + maxSizePerChunk - 1) / maxSizePerChunk;
+        uint8_t globalCrc = calculateCRC8(payload, len);
 
-        // Calcular CRC8 global de todo el payload
-        _globalCrc = calculateCRC8(payload, len);
+        for (uint16_t seq = 0; seq < totalChunks; seq++) {
+            if (!BLE.connected() || !_txCharacteristic->subscribed()) {
+                _isTxInProgress = false;
+                return false;
+            }
 
-        // Despachar el primer fragmento (Chunk 0) inmediatamente.
-        // Los siguientes fragmentos se despacharán asíncronamente en processBleEvents()
-        processEvents();
+            uint16_t offset = seq * maxSizePerChunk;
+            uint16_t remaining = len - offset;
+            uint16_t chunkDataLen = (remaining < maxSizePerChunk) ? remaining : maxSizePerChunk;
+
+            // Estructura Cabecera de Fragmento: [MsgType] [SeqHigh] [SeqLow] [TotalHigh] [TotalLow] [CRC8_Global] [Payload...]
+            _txPacketBuffer[0] = type;
+            _txPacketBuffer[1] = (seq >> 8) & 0xFF; // Parte alta
+            _txPacketBuffer[2] = seq & 0xFF;        // Parte baja
+            _txPacketBuffer[3] = (totalChunks >> 8) & 0xFF; // Parte alta
+            _txPacketBuffer[4] = totalChunks & 0xFF;        // Parte baja
+            _txPacketBuffer[5] = globalCrc;
+
+            memcpy(&_txPacketBuffer[6], &payload[offset], chunkDataLen);
+
+            if (!_txCharacteristic->writeValue(_txPacketBuffer, chunkDataLen + 6)) {
+                _isTxInProgress = false;
+                return false;
+            }
+
+            BLE.poll();
+
+            // Pacing entre fragmentos: cede el tiempo de CPU a otras tareas del RTOS
+            // y da tiempo al stack BLE / SoftDevice para transmitir el paquete
+            rtos::ThisThread::sleep_for(std::chrono::milliseconds(20));
+        }
+
+        _isTxInProgress = false;
         return true;
     }
 }
 
 void BleDriver::processEvents() {
     BLE.poll();
-
-    // Motor de despacho asíncrono
-    if (_txState == TxState::TX_EN_PROGRESO) {
-        // Validación de conexion y suscripcion a TX
-        if (!BLE.connected() || !_txCharacteristic->subscribed()) {
-            _txState = TxState::IDLE; // Si se cae, cancelamos
-            return;
-        }
-
-        uint16_t remaining = _txBufferLen - _txOffset;
-        // Estructura Cabecera de Fragmento: [MsgType] [SeqHigh] [SeqLow] [TotalHigh] [TotalLow] [CRC8_Global] [Payload...]
-        _txPacketBuffer[0] = _currentTxMsgType;
-        _txPacketBuffer[1] = (_chunkSequence >> 8) & 0xFF; // Parte alta
-        _txPacketBuffer[2] = _chunkSequence & 0xFF; // Parte baja
-        _txPacketBuffer[3] = (_totalChunks >> 8) & 0xFF; // Parte alta
-        _txPacketBuffer[4] = _totalChunks & 0xFF; // Parte baja
-        _txPacketBuffer[5] = _globalCrc;
-
-        uint16_t chunkDataLen = BLE_MTU_PAYLOAD - 6;
-        if (remaining < chunkDataLen) {
-            chunkDataLen = remaining;
-        }
-
-        memcpy(&_txPacketBuffer[6], &_txBuffer[_txOffset], chunkDataLen);
-        if (_txCharacteristic->writeValue(_txPacketBuffer, chunkDataLen + 6)) {
-
-        _txOffset += chunkDataLen;
-        _chunkSequence++;
-
-        if (_txOffset >= _txBufferLen) {
-            _txState = TxState::IDLE; // Transmisión completada
-        }
-        }
-    }
 }
 
 void BleDriver::updateBatteryLevel(uint8_t level) {
@@ -194,7 +180,7 @@ void BleDriver::onBleConnect(BLEDevice central) {
 void BleDriver::onBleDisconnect(BLEDevice central) {
     // Limpiar estado
     BleDriver* instance = getInstance();
-    instance->_txState = TxState::IDLE;
+    instance->_isTxInProgress = false;
 
     DEBUG_PRINT("[BLE_Driver] App desconectada. MAC: ");
     DEBUG_PRINTLN(central.address());

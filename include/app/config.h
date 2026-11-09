@@ -1,10 +1,10 @@
 #pragma once
 
 // Activar para habilitar los mensajes por Serial (Debug)
-// #define DEBUG
+#define DEBUG
 
 // Descomentar para utilizar comunicación Serial en lugar de BLE
-#define USE_SERIAL_COMM
+// #define USE_SERIAL_COMM
 
 // Frecuencia de muestreo del IMU (en Hz)
 #ifndef FREQ_IMU

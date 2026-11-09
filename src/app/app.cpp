@@ -87,9 +87,9 @@ void App::init() {
     comm->init();
     // En modo serial unidireccional no se conecta la ISR de RX para evitar atender eventos espurios
 #else
-    BleDriver* bleComm = BleDriver::getInstance();
-    bleComm->init();
-    bleComm->attachRxNotifier(isr_ble_rx); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
+    BleDriver* comm = BleDriver::getInstance();
+    comm->init();
+    comm->attachRxNotifier(isr_ble_rx); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
 #endif
     // Vibrador 
     VibratorDriver* vibrator = VibratorDriver::getInstance();
@@ -156,8 +156,6 @@ void App::init() {
 
     panicBtn->enableInterrupt();
     notifBtn->enableInterrupt();
-    bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
-    // serialDriver->attachRxInterrupt();
-
+    comm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
     DEBUG_PRINTLN("[App Init] Inicializacion del sistema completada");
 }
