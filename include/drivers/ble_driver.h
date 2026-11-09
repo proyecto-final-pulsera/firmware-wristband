@@ -24,20 +24,8 @@ private:
     // BLEStringCharacteristic* _manufacturerNameChar = nullptr;
     // BLEStringCharacteristic* _firmwareRevChar = nullptr;
 
-    // Máquina de estados para fragmentación
-    enum class TxState {
-        IDLE,
-        TX_EN_PROGRESO
-    };
-
-    TxState _txState = TxState::IDLE;
-    MsgType _currentTxMsgType;
-    const uint8_t* _txBuffer = nullptr;
-    uint16_t _txBufferLen = 0;
-    uint16_t _txOffset = 0;
-    uint16_t _chunkSequence = 0;
-    uint16_t _totalChunks = 0;
-    uint8_t _globalCrc = 0;
+    // Estado de transmision fragmentada bloqueante
+    bool _isTxInProgress = false;
 
     // MTU seguro para compatibilidad a Bluetooth 4.2 a partir de 2014
     static const uint16_t BLE_MTU_PAYLOAD = 128; // El maximo seria 244
@@ -93,8 +81,8 @@ public:
      */
     void setTxPower(int8_t power_dbm);
 
-    /// Indica si el motor asíncrono está ocupado transmitiendo fragmentos
-    bool isTxInProgress() const override { return _txState == TxState::TX_EN_PROGRESO; }
+    /// Indica si se encuentra transmitiendo una rafaga fragmentada
+    bool isTxInProgress() const override { return _isTxInProgress; }
 
     // Debe llamarse periódicamente en el super-loop o tarea para que el engine despache fragmentos
     // Procesa eventos de la pila y despacha fragmentos pendientes

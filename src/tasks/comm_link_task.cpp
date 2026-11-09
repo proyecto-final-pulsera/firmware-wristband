@@ -37,10 +37,7 @@ void CommLinkTask::run() {
     _comm = comm;
 
     while (true) {
-        // Pacing dinámico: 20 ms si estamos despachando fragmentos asíncronos, 100 ms en reposo
-        uint32_t queue_timeout_ms = comm->isTxInProgress() ? 20 : 100;
-
-        if (_comm_link_task_queue.receive(&msg, queue_timeout_ms)) {
+        if (_comm_link_task_queue.receive(&msg, 100)) {
             // 1. Recepción (RX)
             if (msg.event_id == EVT_RX_PACKET) {
                 handleRxPacket(comm);
@@ -99,8 +96,9 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             uint16_t count = 0;
             const DataXYZ* buf = imu->getLinearBufferUnprotected(&count);
             if (buf != nullptr && count > 0) {
-                comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)buf, count * sizeof(DataXYZ));
-                imu->fifoFlushUnprotected();
+                if (comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)buf, count * sizeof(DataXYZ))) {
+                    imu->fifoFlushUnprotected();
+                }
             }
             imu->unlock();
             break;
@@ -111,8 +109,9 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             uint16_t count = 0;
             const float* buf = pres->getLinearBufferUnprotected(&count);
             if (buf != nullptr && count > 0) {
-                comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)buf, count * sizeof(float));
-                pres->fifoFlushUnprotected();
+                if (comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)buf, count * sizeof(float))) {
+                    pres->fifoFlushUnprotected();
+                }
             }
             pres->unlock();
             break;
@@ -123,8 +122,9 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             uint16_t imuCount = 0;
             const DataXYZ* imuBuf = imu->getLinearBufferUnprotected(&imuCount);
             if (imuBuf != nullptr && imuCount > 0) {
-                comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)imuBuf, imuCount * sizeof(DataXYZ));
-                imu->fifoFlushUnprotected();
+                if (comm->sendPayload(MSG_IMU_BUFFER, (const uint8_t*)imuBuf, imuCount * sizeof(DataXYZ))) {
+                    imu->fifoFlushUnprotected();
+                }
             }
             imu->unlock();
 
@@ -133,8 +133,9 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             uint16_t presCount = 0;
             const float* presBuf = pres->getLinearBufferUnprotected(&presCount);
             if (presBuf != nullptr && presCount > 0) {
-                comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)presBuf, presCount * sizeof(float));
-                pres->fifoFlushUnprotected();
+                if (comm->sendPayload(MSG_PRESSURE_BUFFER, (const uint8_t*)presBuf, presCount * sizeof(float))) {
+                    pres->fifoFlushUnprotected();
+                }
             }
             pres->unlock();
 
