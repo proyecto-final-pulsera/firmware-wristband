@@ -21,43 +21,9 @@ bool AlarmsEventsTask::sendMsg(AppMessage* msg) {
 }
 
 #include <stdlib.h> // Para abs()
+#include <cmath>    // Para fabsf()
 #include "repositories/imu_repository.h"
 
-
-inline uint16_t AlarmsEventsTask::approx_2d_improved(uint16_t a, uint16_t b) {
-    // 1. Encontrar el mayor (Max) y el menor (Min)
-    uint16_t max_val = (a > b) ? a : b;
-    uint16_t min_val = (a < b) ? a : b;
-    
-    // 2. Calcular z0: a0=1, b0=0 -> 1*Max + 0*Min
-    uint16_t z0 = max_val;
-    
-    // 3. Calcular z1: a1=7/8, b1=17/32
-    // 7/8 * Max = Max - (Max / 8)
-    uint16_t z1_max = max_val - (max_val >> 3); 
-    
-    // 17/32 * Min = (Min / 2) + (Min / 32)
-    uint16_t z1_min = (min_val >> 1) + (min_val >> 5);
-    
-    uint16_t z1 = z1_max + z1_min;
-    
-    // 4. Retornar el mayor entre z0 y z1
-    return (z0 > z1) ? z0 : z1;
-}
-
-// Función principal para el acelerómetro 3D
-uint16_t AlarmsEventsTask::suma_pitagorica(int16_t x, int16_t y, int16_t z) {
-    // Trabajar con valores absolutos
-    uint16_t abs_x = abs(x);
-    uint16_t abs_y = abs(y);
-    uint16_t abs_z = abs(z);
-
-    // Componer iterativamente: primero plano XY, luego el resultado con Z
-    uint16_t mag_xy = approx_2d_improved(abs_x, abs_y);
-    uint16_t mag_xyz = approx_2d_improved(mag_xy, abs_z);
-
-    return mag_xyz;
-}
 
 void AlarmsEventsTask::run() {
     AppMessage msg;
@@ -113,51 +79,55 @@ void AlarmsEventsTask::run() {
     }
 }
 
-uint8_t AlarmsEventsTask::evaluateWindow(uint16_t startIndex, uint16_t len) {
+uint8_t AlarmsEventsTask::evaluateWindow(const uint16_t* magnitudes, uint16_t len) {
     uint8_t flags = 0;
-    uint16_t magnitudes[IMPACT_WINDOW_SIZE];
     
-    uint16_t process_len = (len > IMPACT_WINDOW_SIZE) ? IMPACT_WINDOW_SIZE : len;
-
-    ImuRepository* imu = ImuRepository::getInstance();
-    for (uint16_t k = 0; k < process_len; k++) {
-        DataXYZ sample = imu->getElementAtUnprotected(startIndex + k);
-        magnitudes[k] = suma_pitagorica(
-            sample.x, 
-            sample.y, 
-            sample.z
-        );
+    if (magnitudes == nullptr || len == 0) {
+        return flags;
     }
 
-    if (process_len <= SLIDING_WINDOW_SIZE) return flags;
+    uint16_t process_len = (len > IMPACT_WINDOW_SIZE) ? IMPACT_WINDOW_SIZE : len;
 
-    for (uint16_t i = 0; i <= process_len - SLIDING_WINDOW_SIZE; i++) {
-        uint32_t sum_magnitud_ventana = 0;
+    // Inicialización del filtro solo en el primer uso (cuando arranca el sistema)
+    if (media_ema == 0) {
+        media_ema = magnitudes[0];
+        mad_ema = 0;
+    }
 
-        for (uint16_t j = 0; j < SLIDING_WINDOW_SIZE; j++) {
-            sum_magnitud_ventana += magnitudes[i + j];
-        }
+    for (uint16_t i = 0; i < process_len; i++) {
+        int32_t x = magnitudes[i];
+        
+        // 1. Filtros EMA en aritmética entera (alpha = 1/8)
+        // Se asume que media_ema y mad_ema son atributos (int32_t) de la clase.
+        media_ema += (x - media_ema) >> 3;
+        
+        int32_t diff = abs(x - media_ema);
+        mad_ema += (diff - mad_ema) >> 3;
 
-        uint16_t promedio_ventana = sum_magnitud_ventana >> SLIDING_WINDOW_SHIFT;
-
-        if (promedio_ventana < THRESHOLD_FREE_FALL) {
-            if (!(flags & FLAG_FREE_FALL)) {
-DEBUG_PRINT("[AlarmsEventsTask] FLAG CAIDA LIBRE detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
-            }
+        // 2. Evaluar Caída Libre (Baja dinámica -> evaluado sobre la media)
+        if (media_ema < THRESHOLD_FREE_FALL) {
             flags |= FLAG_FREE_FALL;
         }
         
-        if (promedio_ventana > THRESHOLD_IMPACT) {
-            if (!(flags & FLAG_IMPACT)) {
-DEBUG_PRINT("[AlarmsEventsTask] FLAG IMPACTO detectada! Mag: "); DEBUG_PRINTLN(promedio_ventana);
-            }
+        // 3. Evaluar Impacto (Alta dinámica -> evaluado sobre valor instantáneo)
+        if (x > THRESHOLD_IMPACT) {
             flags |= FLAG_IMPACT;
         }
         
-        if (flags == FLAG_FALL_DETECTED) {
+        // Retorno prioritario si ya se detectó la secuencia completa de caída
+        if ((flags & FLAG_FALL_DETECTED) == FLAG_FALL_DETECTED) {
             return flags;
         }
     }
+
+    // 4. Evaluar inmovilidad tras actualizar el MAD con toda la ventana
+    if (mad_ema < THRESHOLD_NO_MOVEMENT_HIGH) { 
+        flags |= FLAG_NO_MOVEMENT_HIGHT;
+        flags |= FLAG_NO_MOVEMENT_LOW;
+    } else if (mad_ema < THRESHOLD_NO_MOVEMENT_LOW) {
+        flags |= FLAG_NO_MOVEMENT_LOW;
+    }
+
     return flags;
 }
 
@@ -170,19 +140,21 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
 
     uint8_t fall_flags = 0;
 
-    imu->lock();
-
     // Procesamiento del inicio del buffer en caso de WAKEUP
     if (process_preFall) {
-        fall_flags |= evaluateWindow(0, IMPACT_WINDOW_SIZE);
+        uint16_t count = imu->copyFifoMagnitudes(_magnitudes, IMPACT_WINDOW_SIZE, 0);
+        fall_flags |= evaluateWindow(_magnitudes, count);
+
+        
     }
 
     // Segunda etapa (o única si no es wakeup): ventana del medio
-    if (fall_flags != FLAG_FALL_DETECTED) {
-        fall_flags |= evaluateWindow(START_IMPACT_WINDOW_INDEX, IMPACT_WINDOW_SIZE);
+    if ((fall_flags & FLAG_FALL_DETECTED) != FLAG_FALL_DETECTED) {
+        uint16_t count = imu->copyFifoMagnitudes(_magnitudes, IMPACT_WINDOW_SIZE, START_IMPACT_WINDOW_INDEX);
+        fall_flags |= evaluateWindow(_magnitudes, count);
     }
 
-    imu->unlock();
+    _lastEvaluatedFlags = fall_flags;
 
-    return (fall_flags == FLAG_FALL_DETECTED);
+    return ((fall_flags & FLAG_FALL_DETECTED) == FLAG_FALL_DETECTED);
 }

@@ -156,7 +156,9 @@ void App::init() {
 
     panicBtn->enableInterrupt();
     notifBtn->enableInterrupt();
-    bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
+#ifndef USE_SERIAL_COMM
+    BleDriver::getInstance()->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
+#endif
     // serialDriver->attachRxInterrupt();
 
     DEBUG_PRINTLN("[App Init] Inicializacion del sistema completada");

@@ -1,6 +1,7 @@
 #include "repositories/imu_repository.h"
 #include <algorithm>
 #include <cstring>
+#include <cstdlib>
 
 ImuRepository* ImuRepository::getInstance() {
     static ImuRepository instance;
@@ -230,4 +231,32 @@ uint32_t ImuRepository::getTotalPushed() const {
 
 void ImuRepository::resetTotalPushed() {
     _totalPushed = 0;
+}
+
+
+uint16_t ImuRepository::sumaPitagorica(int16_t x, int16_t y, int16_t z) {
+    uint16_t abs_x = abs(x);
+    uint16_t abs_y = abs(y);
+    uint16_t abs_z = abs(z);
+    uint16_t mag_xy = approx2DImproved(abs_x, abs_y);
+    return approx2DImproved(mag_xy, abs_z);
+}
+
+uint16_t ImuRepository::copyFifoMagnitudes(uint16_t* buffer, uint16_t maxLen, uint16_t index) {
+    rtos::ScopedMutexLock lock(_mutex);
+    if (index >= _count || buffer == nullptr) {
+        return 0;
+    }
+
+    uint16_t elementsToCopy = _count - index;
+    if (elementsToCopy > maxLen) {
+        elementsToCopy = maxLen;
+    }
+
+    for (uint16_t i = 0; i < elementsToCopy; i++) {
+        const DataXYZ& sample = _fifo[(_tail + index + i) % IMU_FIFO_SIZE];
+        buffer[i] = sumaPitagorica(sample.x, sample.y, sample.z);
+    }
+
+    return elementsToCopy;
 }

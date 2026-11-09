@@ -23,10 +23,11 @@ private:
     rtos::Thread _thread;
     MessageQueue<AppMessage, TASK_QUEUE_SIZE> _alarms_events_task_queue;
     
-    // ANTES: Buffer para la ventana de impacto (en memoria estatica para evitar Stack Overflow)
-    // DataXYZ _imu_window_buffer[IMPACT_WINDOW_SIZE];
-    // AHORA (Alternativa 1): Se comenta para ahorrar 1.800 Bytes de RAM estática.
-    // La evaluación se realiza leyendo directamente las muestras desde ImuRepository por índice lógico sin duplicar buffers.
+    // Buffer de magnitudes precalculadas (alojado en la tarea para evitar desbordar el stack)
+    uint16_t _magnitudes[IMPACT_WINDOW_SIZE];
+    uint8_t _lastEvaluatedFlags = 0;
+    int32_t media_ema;
+    int32_t mad_ema;
 
     void run();
 
@@ -57,16 +58,23 @@ protected:
         UPDATE_BUFFER_BHI,
     };
 
-    // Funciones matematicas de aproximacion 3D
-    static inline uint16_t approx_2d_improved(uint16_t a, uint16_t b);
-    uint16_t suma_pitagorica(int16_t x, int16_t y, int16_t z);
+    // Funciones matematicas de aproximacion 3D (delegadas a ImuRepository)
+    static inline uint16_t approx_2d_improved(uint16_t a, uint16_t b) {
+        return ImuRepository::approx2DImproved(a, b);
+    }
+    static inline uint16_t suma_pitagorica(int16_t x, int16_t y, int16_t z) {
+        return ImuRepository::sumaPitagorica(x, y, z);
+    }
 
-    #define FLAG_FREE_FALL 0x01
-    #define FLAG_IMPACT    0x02
-    #define FLAG_FALL_DETECTED (FLAG_FREE_FALL | FLAG_IMPACT)
+    #define FLAG_FREE_FALL          0x01
+    #define FLAG_IMPACT             0x02
+    #define FLAG_FALL_DETECTED      (FLAG_FREE_FALL | FLAG_IMPACT)
+    #define FLAG_NO_MOVEMENT_LOW    0x04
+    #define FLAG_NO_MOVEMENT_HIGHT  0x08
+    #define FLAG_NO_MOVEMENT_HIGH   FLAG_NO_MOVEMENT_HIGHT
 
-    // Funcion auxiliar para evaluar la ventana leyendo directamente desde ImuRepository
-    uint8_t evaluateWindow(uint16_t startIndex, uint16_t len);
+    // Funcion auxiliar para evaluar la ventana sobre el vector de magnitudes provisto
+    uint8_t evaluateWindow(const uint16_t* magnitudes, uint16_t len);
     
     // Funcion de procesamiento (retorna true si hubo caida)
     bool processImuWindow(bool process_preFall);
@@ -78,4 +86,5 @@ public:
     }
 
     void init();
+    uint8_t getLastEvaluatedFlags() const { return _lastEvaluatedFlags; }
 };
