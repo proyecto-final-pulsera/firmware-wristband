@@ -100,6 +100,14 @@ public:
     virtual bool sendPayload(MsgType type, const uint8_t* payload, uint16_t len) = 0;
 
     // -------------------------------------------------------------------------
+    // Métodos Genéricos de Control y Ciclo de Vida
+    // -------------------------------------------------------------------------
+    virtual bool isTxInProgress() const { return false; }
+    virtual void processEvents() {}
+    virtual bool isConnected() { return true; }
+    virtual void disconnect() {}
+
+    // -------------------------------------------------------------------------
     // Inyección de Dependencias (Inter-Task)
     // -------------------------------------------------------------------------
     

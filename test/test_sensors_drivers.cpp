@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include "test_sensors_drivers.h"
-
+#include "utils/debug.h"
 #include "drivers/bhi260_driver.h"
 #include "repositories/imu_repository.h"
 #include "repositories/pressure_repository.h"
@@ -15,12 +15,12 @@ volatile bool isrFlag = false;
 // Handler ISR físico
 void onBhiInt() {
     isrFlag = true;
-    Serial.println("");
+    DEBUG_PRINTLN("");
 }
 
 void runSensorsDriversTest() {
-    Serial.println("\n================================================");
-    Serial.println("--- INICIANDO TEST MULTI-SENSOR DRIVERS ---");
+    DEBUG_PRINTLN("\n================================================");
+    DEBUG_PRINTLN("--- INICIANDO TEST MULTI-SENSOR DRIVERS ---");
     
     BHI260Driver* bhi = BHI260Driver::getInstance();
     bhi->init();
@@ -34,12 +34,12 @@ void runSensorsDriversTest() {
     NoMotionRepository* noMotionEvent = NoMotionRepository::getInstance(); 
 
     // 2. Configurar y encender los sensores en el BHI260
-    Serial.println("[DEBUG] Configurando Sensores Continuos (NON WAKE-UP)...");
+    DEBUG_PRINTLN("[DEBUG] Configurando Sensores Continuos (NON WAKE-UP)...");
     imuDriver->begin((float)FREQ_IMU, 3000);       // IMU a 50Hz, 3s latencia
     pressureDriver->begin((float)FREQ_PRESSURE,(uint32_t) -1);  // Barómetro a 16Hz, no interrumpe
     tempDriver->begin(1.0f,(uint32_t) -1);       // Temperatura a 1Hz
 
-    Serial.println("[DEBUG] Configurando Sensores de Evento (WAKE-UP)...");
+    DEBUG_PRINTLN("[DEBUG] Configurando Sensores de Evento (WAKE-UP)...");
     motionEvent->begin(1.0f, 0);
     noMotionEvent->begin(1.0f, 0);
 
@@ -48,20 +48,20 @@ void runSensorsDriversTest() {
 
     // Consultamos la configuración real que quedó aplicada
     SensorConfig imuCfg = imuDriver->getConfiguration();
-    Serial.print("[DEBUG] CONFIG IMU -> Sample Rate: ");
-    Serial.print(imuCfg.sample_rate);
-    Serial.print(" Hz, Latency: ");
-    Serial.print(imuCfg.latency);
-    Serial.print(" ms, Range: ");
-    Serial.println(imuCfg.range);
+    DEBUG_PRINT("[DEBUG] CONFIG IMU -> Sample Rate: ");
+    DEBUG_PRINT(imuCfg.sample_rate);
+    DEBUG_PRINT(" Hz, Latency: ");
+    DEBUG_PRINT(imuCfg.latency);
+    DEBUG_PRINT(" ms, Range: ");
+    DEBUG_PRINTLN(imuCfg.range);
 
     SensorConfig pressCfg = pressureDriver->getConfiguration();
-    Serial.print("[DEBUG] CONFIG PRESSURE -> Sample Rate: ");
-    Serial.print(pressCfg.sample_rate);
-    Serial.print(" Hz, Latency: ");
-    Serial.print(pressCfg.latency);
-    Serial.print(" ms, Range: ");
-    Serial.println(pressCfg.range);
+    DEBUG_PRINT("[DEBUG] CONFIG PRESSURE -> Sample Rate: ");
+    DEBUG_PRINT(pressCfg.sample_rate);
+    DEBUG_PRINT(" Hz, Latency: ");
+    DEBUG_PRINT(pressCfg.latency);
+    DEBUG_PRINT(" ms, Range: ");
+    DEBUG_PRINTLN(pressCfg.range);
 
     // 3. Configurar Interrupción usando la librería del BHI260
     bhi->configureInterrupt(onBhiInt);
@@ -71,11 +71,11 @@ void runSensorsDriversTest() {
     isrFlag = false;
 
     // 5. Estado Inicial: Apagamos el recolector de FIFO Non-WakeUp
-    Serial.println("[DEBUG] ESTADO INICIAL: Disable Non-Wakeup FIFO.");
+    DEBUG_PRINTLN("[DEBUG] ESTADO INICIAL: Disable Non-Wakeup FIFO.");
     bhi->disableNonWakeupFIFO();
     bool isNonWakeupActive = false;
 
-    Serial.println("[DEBUG] Esperando por eventos de movimiento... (Test dura 30 seg)");
+    DEBUG_PRINTLN("[DEBUG] Esperando por eventos de movimiento... (Test dura 30 seg)");
     
     unsigned long startTime = millis();
     while (millis() - startTime < 50000) {
@@ -89,7 +89,7 @@ void runSensorsDriversTest() {
             
             // Chequear eventos de Wake Up
             if (motionEvent->hasEventOccurred()) {
-                Serial.println("[EVENTO] -> MOTION DETECTADO!");
+                DEBUG_PRINTLN("[EVENTO] -> MOTION DETECTADO!");
                 motionEvent->clearEventFlag();
                 noMotionEvent->begin(1.0f, 0);
                 
@@ -97,7 +97,7 @@ void runSensorsDriversTest() {
                 
                 // Si detecta movimiento, despertamos (activamos la lectura Non-WakeUp)
                 if (!isNonWakeupActive) {
-                    Serial.println("         -> Habilitando Non-Wakeup FIFO (IMU/Press/Temp on)");
+                    DEBUG_PRINTLN("         -> Habilitando Non-Wakeup FIFO (IMU/Press/Temp on)");
                     bhi->enableNonWakeupFIFO();
                     bhi->updateFifoData();
                     imuDriver->fifoFlush();
@@ -107,13 +107,13 @@ void runSensorsDriversTest() {
             }
 
             if (noMotionEvent->hasEventOccurred()) {
-                Serial.println("[EVENTO] -> NO MOTION (Stationary) DETECTADO!");
+                DEBUG_PRINTLN("[EVENTO] -> NO MOTION (Stationary) DETECTADO!");
                 noMotionEvent->clearEventFlag();
                 motionEvent->begin(1.0f, 0);
                 
                 // Si la placa se queda quieta, volvemos a suspender los datos continuos para ahorrar batería
                 if (isNonWakeupActive) {
-                    Serial.println("         -> Deshabilitando Non-Wakeup FIFO (Ahorro de energia)");
+                    DEBUG_PRINTLN("         -> Deshabilitando Non-Wakeup FIFO (Ahorro de energia)");
                     bhi->disableNonWakeupFIFO();
                     isNonWakeupActive = false;
                 }
@@ -122,25 +122,25 @@ void runSensorsDriversTest() {
             // Procesamos lo que haya ingresado en los buffers
             // Verificamos llenado de los buffers de las clases wrapper
             if(isNonWakeupActive){ 
-                Serial.print("IMU Datos Push: ");
-                Serial.println(imuDriver->getTotalPushed());
-                Serial.print("Press Datos Push: ");
-                Serial.println(pressureDriver->getTotalPushed());
+                DEBUG_PRINT("IMU Datos Push: ");
+                DEBUG_PRINTLN(imuDriver->getTotalPushed());
+                DEBUG_PRINT("Press Datos Push: ");
+                DEBUG_PRINTLN(pressureDriver->getTotalPushed());
             }
             if (imuDriver->isFull()) {
-                Serial.println("[BUFF LLENO] Sensor IMU saturado. Procediendo a vaciar...");
+                DEBUG_PRINTLN("[BUFF LLENO] Sensor IMU saturado. Procediendo a vaciar...");
                 imuDriver->fifoFlush();
             }
 
             if (pressureDriver->isFull()) {
-                Serial.println("[BUFF LLENO] Sensor PRESION saturado. Procediendo a vaciar...");
+                DEBUG_PRINTLN("[BUFF LLENO] Sensor PRESION saturado. Procediendo a vaciar...");
                 pressureDriver->fifoFlush();
             }
 
             //Consumimos temperatura si hay nueva para limpiar su flag
             if (tempDriver->isUpdated()) {
-                Serial.print("Temperatura Actualizada: ");
-                Serial.println(tempDriver->getTemp());
+                DEBUG_PRINT("Temperatura Actualizada: ");
+                DEBUG_PRINTLN(tempDriver->getTemp());
             }
             
             
@@ -157,6 +157,6 @@ void runSensorsDriversTest() {
     
     bhi->enableNonWakeupFIFO(); // Dejarlo prendido por las dudas para el resto del firmware
     
-    Serial.println("--- FIN DEL TEST MULTI-SENSOR ---");
-    Serial.println("================================================\n");
+    DEBUG_PRINTLN("--- FIN DEL TEST MULTI-SENSOR ---");
+    DEBUG_PRINTLN("================================================\n");
 }

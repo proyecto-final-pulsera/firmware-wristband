@@ -94,17 +94,21 @@ public:
     void setTxPower(int8_t power_dbm);
 
     /// Indica si el motor asíncrono está ocupado transmitiendo fragmentos
-    bool isTxInProgress() const { return _txState == TxState::TX_EN_PROGRESO; }
+    bool isTxInProgress() const override { return _txState == TxState::TX_EN_PROGRESO; }
 
     // Debe llamarse periódicamente en el super-loop o tarea para que el engine despache fragmentos
-    void processBleEvents();
+    // Procesa eventos de la pila y despacha fragmentos pendientes
+    void processEvents() override;
+
+    // Compatibilidad hacia atrás
+    void processBleEvents() { processEvents(); }
 
     // Publicar batería en el servicio estándar
     void updateBatteryLevel(uint8_t level);
 
     /// Desconecta activamente la conexión BLE actual si existe
-    void disconnect();
+    void disconnect() override;
 
     /// Retorna verdadero si hay un central BLE conectado
-    bool isConnected();
+    bool isConnected() override;
 };

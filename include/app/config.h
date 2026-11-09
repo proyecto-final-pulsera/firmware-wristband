@@ -3,6 +3,9 @@
 // Activar para habilitar los mensajes por Serial (Debug)
 // #define DEBUG
 
+// Descomentar para utilizar comunicación Serial en lugar de BLE
+#define USE_SERIAL_COMM
+
 // Frecuencia de muestreo del IMU (en Hz)
 #ifndef FREQ_IMU
 #define FREQ_IMU 50
@@ -58,7 +61,7 @@
 // --- Configuración de Autenticación BLE (Zero Flash Writes) ---
 // =============================================================================
 #ifndef BRACELET_UID
-#define BRACELET_UID "SB-001"
+#define BRACELET_UID "SB-001" // TODO Definir el UID del equipo.
 #endif
 
 #define BLE_AUTH_TIMEOUT_MS   10000 // 10 segundos para completar autenticacion
@@ -91,8 +94,8 @@
 //    - COMM_LINK (1280 B): Tarea con mayor profundidad de llamada (árbol de ejecución
 //      que desciende por BleDriver, BLE.poll(), ArduinoBLE y capa HCI Cordio).
 // =============================================================================
-#define STACK_SIZE_PMIC_TASK             384
-#define STACK_SIZE_NOTIFY_TELEMETRY_TASK 448
-#define STACK_SIZE_ALARMS_EVENTS_TASK    1152
-#define STACK_SIZE_SYSTEM_TASK           768//640
-#define STACK_SIZE_COMM_LINK_TASK        1100//960
+#define STACK_SIZE_PMIC_TASK             768
+#define STACK_SIZE_NOTIFY_TELEMETRY_TASK 1024
+#define STACK_SIZE_ALARMS_EVENTS_TASK    1280
+#define STACK_SIZE_SYSTEM_TASK           1536
+#define STACK_SIZE_COMM_LINK_TASK        1536

@@ -6,6 +6,7 @@
 #include "repositories/event_repository.h"
 #include "drivers/serial_comm_driver.h"
 #include "repositories/temperature_repository.h"
+#include "utils/debug.h"
 // Estructura de "Snapshot" para congelar el evento
 // =============================================================================
 struct FallSnapshot {
@@ -24,9 +25,9 @@ void runSerialDataTest() {
     Serial.begin(115200);
     while(!Serial);
 
-    Serial.println("\n================================================");
-    Serial.println(" INICIANDO TEST INFINITO: MÁQUINA DE CAÍDAS");
-    Serial.println("================================================\n");
+    DEBUG_PRINTLN("\n================================================");
+    DEBUG_PRINTLN(" INICIANDO TEST INFINITO: MÁQUINA DE CAÍDAS");
+    DEBUG_PRINTLN("================================================\n");
     
     // Inicializar el core de Bosch
     BHI260Driver* bhi = BHI260Driver::getInstance();
@@ -46,18 +47,18 @@ void runSerialDataTest() {
     StepCounterRepository* stepCounterWakeup = StepCounterRepository::getInstance();
 
     // Configurar sensores continuos (Non-Wakeup)
-    Serial.println("[DEBUG] Configurando sensores continuos (IMU a 50Hz, Presion a 16Hz)...");
+    DEBUG_PRINTLN("[DEBUG] Configurando sensores continuos (IMU a 50Hz, Presion a 16Hz)...");
     imuDriver->begin((float)FREQ_IMU, 3000); 
     pressureDriver->begin((float)FREQ_PRESSURE, 3000);
     tempDriver->begin(1.0f, (uint32_t)-1); // Latencia -1 para que no interrumpa
 
     // Configurar eventos virtuales (Wakeup / One-Shot)
-    Serial.println("[DEBUG] Configurando detectores de movimiento y paso...");
+    DEBUG_PRINTLN("[DEBUG] Configurando detectores de movimiento y paso...");
     motionEvent->begin(1.0f, 0);
     noMotionEvent->begin(1.0f, 0);
     stepCounterWakeup->begin(1.0f,(uint32_t)-1 );
 
-    Serial.println("\n[SISTEMA LISTO] -> Estado Inicial: Esperando Movimiento.");
+    DEBUG_PRINTLN("\n[SISTEMA LISTO] -> Estado Inicial: Esperando Movimiento.");
     
     TestState currentState = WAIT_MOTION;
     uint32_t last_keep_alive = millis();
@@ -112,7 +113,7 @@ void runSerialDataTest() {
                 // Alerta de Caída (Payload nulo)
                 comm->sendPayload(MSG_ALARM, nullptr, 0);
 
-                //Serial.println("[SISTEMA] -> Volviendo a fase 1 (Esperando Movimiento).\n");
+                //DEBUG_PRINTLN("[SISTEMA] -> Volviendo a fase 1 (Esperando Movimiento).\n");
                 
                 // Reseteamos el flag de movimiento por si saltó mientras transmitíamos
                 motionEvent->clearEventFlag();

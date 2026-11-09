@@ -117,12 +117,12 @@ bool BleDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) 
 
         // Despachar el primer fragmento (Chunk 0) inmediatamente.
         // Los siguientes fragmentos se despacharán asíncronamente en processBleEvents()
-        processBleEvents();
+        processEvents();
         return true;
     }
 }
 
-void BleDriver::processBleEvents() {
+void BleDriver::processEvents() {
     BLE.poll();
 
     // Motor de despacho asíncrono
@@ -185,8 +185,8 @@ void BleDriver::onBleWrite(BLEDevice central, BLECharacteristic characteristic) 
 }
 
 void BleDriver::onBleConnect(BLEDevice central) {
-    Serial.print("[BLE_Driver] App conectada. MAC: ");
-    Serial.println(central.address());
+    DEBUG_PRINT("[BLE_Driver] App conectada. MAC: ");
+    DEBUG_PRINTln(central.address());
     nicla::leds.setColor(yellow); // Amarillo indica conectado esperando autenticacion UID
 }
 
@@ -195,8 +195,8 @@ void BleDriver::onBleDisconnect(BLEDevice central) {
     BleDriver* instance = getInstance();
     instance->_txState = TxState::IDLE;
 
-    Serial.print("[BLE_Driver] App desconectada. MAC: ");
-    Serial.println(central.address());
+    DEBUG_PRINT("[BLE_Driver] App desconectada. MAC: ");
+    DEBUG_PRINTln(central.address());
     nicla::leds.setColor(blue); // Vuelve a azul para indicar desconectado/esperando
 }
 

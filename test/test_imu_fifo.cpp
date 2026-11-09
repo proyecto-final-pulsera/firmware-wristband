@@ -3,6 +3,7 @@
 #include "repositories/imu_repository.h"
 #include "drivers/bhi260_driver.h"
 #include <BoschSensortec.h>
+#include "utils/debug.h"
 
 // Variables for interrupt testing
 volatile bool testInterruptTriggered = false;
@@ -11,18 +12,18 @@ void onSensorInterrupt() {
 }
 
 void runImuFifoTest() {
-    Serial.println("\n================================================");
-    Serial.println("--- INICIANDO TEST DE FIFO IMU (10 SEGUNDOS) ---");
+    DEBUG_PRINTLN("\n================================================");
+    DEBUG_PRINTLN("--- INICIANDO TEST DE FIFO IMU (10 SEGUNDOS) ---");
     
     BHI260Driver* imu = BHI260Driver::getInstance();
     imu->init();
     // Obtenemos el singleton
     static ImuRepository* imuSensor = ImuRepository::getInstance();
     
-    Serial.println("[DEBUG] Etapa 1/6: Configurando Acelerometro a 50Hz...");
+    DEBUG_PRINTLN("[DEBUG] Etapa 1/6: Configurando Acelerometro a 50Hz...");
     imuSensor->begin(50.0f, 0); 
     
-    Serial.println("[DEBUG] Etapa 1.5/6: Configurando Tilt Detector (Wakeup)...");
+    DEBUG_PRINTLN("[DEBUG] Etapa 1.5/6: Configurando Tilt Detector (Wakeup)...");
     SensorConfigurationPacket cfgTilt;
     cfgTilt.sensorId = SENSOR_ID_TILT_DETECTOR;
     cfgTilt.sampleRate = 1.0f;
@@ -37,25 +38,25 @@ void runImuFifoTest() {
     imuSensor->fifoFlush();
     testInterruptTriggered = false;
 
-    Serial.println("[DEBUG] Etapa 2/6: Desactivando host (AP Suspend).");
-    Serial.println("        -> El MCU no recibira interrupciones de datos normales (Accel).");
-    Serial.println("        -> PERO si inclinas la placa (Tilt), deberia disparar la ISR!");
+    DEBUG_PRINTLN("[DEBUG] Etapa 2/6: Desactivando host (AP Suspend).");
+    DEBUG_PRINTLN("        -> El MCU no recibira interrupciones de datos normales (Accel).");
+    DEBUG_PRINTLN("        -> PERO si inclinas la placa (Tilt), deberia disparar la ISR!");
     
     imu->disableNonWakeupFIFO();
 
-    Serial.println("[DEBUG] Etapa 3/6: Esperando 10 segundos. Mové e incliná la placa ahora...");
+    DEBUG_PRINTLN("[DEBUG] Etapa 3/6: Esperando 10 segundos. Mové e incliná la placa ahora...");
     // 3. Pasado 10 segundos, monitoreamos el flag
     unsigned long start =  millis();
     while(millis() - start <= 15000){
         if(testInterruptTriggered) {
             imu->disableInterrupt();
             imu->updateFifoData(); 
-            Serial.println("[TEST] -> ¡Interrupción disparada detectada por el handler!");
+            DEBUG_PRINTLN("[TEST] -> ¡Interrupción disparada detectada por el handler!");
             if (imu->availableSensorData()){
-                Serial.print("ID");
+                DEBUG_PRINT("ID");
                 SensorDataPacket data;
                 imu->readSensorData(data);
-                Serial.print(data.sensorId);
+                DEBUG_PRINT(data.sensorId);
             }
             testInterruptTriggered = false;
             imu->enableInterrupt();
@@ -63,48 +64,48 @@ void runImuFifoTest() {
         delay(100);
     }
 
-    Serial.println("[DEBUG] Etapa 4/6: Despertando host (AP Resume) para permitir lectura masiva...");
+    DEBUG_PRINTLN("[DEBUG] Etapa 4/6: Despertando host (AP Resume) para permitir lectura masiva...");
     // 4. Indicamos al sensor que el host está despierto
     imu->enableNonWakeupFIFO();
 
-    Serial.println("[DEBUG] Etapa 5/6: Parseando los datos acumulados de la FIFO fisica...");
+    DEBUG_PRINTLN("[DEBUG] Etapa 5/6: Parseando los datos acumulados de la FIFO fisica...");
     imu->updateFifoData(); 
     
     // 5. Mostrar tamaño de la FIFO de la clase
     uint16_t count = imuSensor->getAvailableCount();
-    Serial.print("[DEBUG] Etapa 6/6: Elementos recolectados en la FIFO de memoria: ");
-    Serial.println(count);
+    DEBUG_PRINT("[DEBUG] Etapa 6/6: Elementos recolectados en la FIFO de memoria: ");
+    DEBUG_PRINTLN(count);
     
     if (count == 0) {
-        Serial.println("        -> ADVERTENCIA: La FIFO esta vacia. Verifica si la placa se movio.");
+        DEBUG_PRINTLN("        -> ADVERTENCIA: La FIFO esta vacia. Verifica si la placa se movio.");
     }
 
     // Mostrar los datos como X - Y - Z
-    Serial.println("\n--- DATOS DE LA FIFO ---");
+    DEBUG_PRINTLN("\n--- DATOS DE LA FIFO ---");
     while(imuSensor->getAvailableCount() > 0) {
         DataXYZ data;
         if(imuSensor->pop(data)) {
-            Serial.print(data.x);
-            Serial.print(" - ");
-            Serial.print(data.y);
-            Serial.print(" - ");
-            Serial.println(data.z);
+            DEBUG_PRINT(data.x);
+            DEBUG_PRINT(" - ");
+            DEBUG_PRINT(data.y);
+            DEBUG_PRINT(" - ");
+            DEBUG_PRINTLN(data.z);
         }
     }
-    Serial.println("------------------------");
+    DEBUG_PRINTLN("------------------------");
 
     // Desuscribimos y apagamos
     imuSensor->end();
     cfgTilt.sampleRate = 0.0f; // Apagamos el Tilt
     imu->configureSensor(cfgTilt);
     
-    Serial.println("================================================\n");
+    DEBUG_PRINTLN("================================================\n");
 }
 
 void runFifoDepthTest() {
-    Serial.println("\n================================================");
-    Serial.println("--- INICIANDO TEST DE PROFUNDIDAD HW FIFO ---");
-    Serial.println("-> Objetivo: Medir cuantos paquetes retiene el BHI260.");
+    DEBUG_PRINTLN("\n================================================");
+    DEBUG_PRINTLN("--- INICIANDO TEST DE PROFUNDIDAD HW FIFO ---");
+    DEBUG_PRINTLN("-> Objetivo: Medir cuantos paquetes retiene el BHI260.");
     
     BHI260Driver* imu = BHI260Driver::getInstance();
     
@@ -112,7 +113,7 @@ void runFifoDepthTest() {
     ImuRepository* imuSensor = ImuRepository::getInstance();
     
     // Lo configuramos a una altísima velocidad: 800 Hz
-    Serial.println("[DEBUG] Etapa 1: Configurando Acelerometro a 800Hz...");
+    DEBUG_PRINTLN("[DEBUG] Etapa 1: Configurando Acelerometro a 800Hz...");
     imuSensor->begin(800.0f, 0); 
     
     // Vaciamos basuras y reseteamos el contador de test
@@ -120,8 +121,8 @@ void runFifoDepthTest() {
     imuSensor->fifoFlush();
     imuSensor->resetTotalPushed();
 
-    Serial.println("[DEBUG] Etapa 2: Apagando host y esperando 10 SEGUNDOS...");
-    Serial.println("        -> Esto forzará el desborde del buffer interno del BHI260.");
+    DEBUG_PRINTLN("[DEBUG] Etapa 2: Apagando host y esperando 10 SEGUNDOS...");
+    DEBUG_PRINTLN("        -> Esto forzará el desborde del buffer interno del BHI260.");
     
     imu->disableNonWakeupFIFO();
     
@@ -129,7 +130,7 @@ void runFifoDepthTest() {
     // En 10 segundos a 800 Hz = 8000 muestras
     delay(10000);
 
-    Serial.println("[DEBUG] Etapa 3: Despertando host y parseando TODO el buffer...");
+    DEBUG_PRINTLN("[DEBUG] Etapa 3: Despertando host y parseando TODO el buffer...");
     imu->enableNonWakeupFIFO();
     
     // La función interna de Bosch (bhy2_get_and_process_fifo) ya tiene un ciclo while
@@ -138,12 +139,12 @@ void runFifoDepthTest() {
     // Por ende, un solo llamado a updateFifoData() extrae todo el historial acumulado.
     imu->updateFifoData(); 
 
-    Serial.print("[DEBUG] -> Paquetes totales extraidos de la HW FIFO: ");
-    Serial.println(imuSensor->getTotalPushed());
+    DEBUG_PRINT("[DEBUG] -> Paquetes totales extraidos de la HW FIFO: ");
+    DEBUG_PRINTLN(imuSensor->getTotalPushed());
     
     // Apagamos todo
     imu->disableNonWakeupFIFO();
     imuSensor->end();
     
-    Serial.println("================================================\n");
+    DEBUG_PRINTLN("================================================\n");
 }

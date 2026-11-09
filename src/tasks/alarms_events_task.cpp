@@ -10,9 +10,9 @@
 void AlarmsEventsTask::init() {
     osStatus stat = _thread.start(mbed::callback(this, &AlarmsEventsTask::run));
     if (stat != osOK) {
-        Serial.print("[ERROR] AlarmsEventsTask: Fallo al iniciar hilo (codigo ");
-        Serial.print((int)stat);
-        Serial.println(" - Memoria insuficiente)");
+        DEBUG_PRINT("[ERROR] AlarmsEventsTask: Fallo al iniciar hilo (codigo ");
+        DEBUG_PRINT((int)stat);
+        DEBUG_PRINTLN(" - Memoria insuficiente)");
     }
 }
 

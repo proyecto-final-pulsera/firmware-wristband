@@ -15,9 +15,9 @@ extern BoschSensortec sensortec;
 void SystemTask::init() {
     osStatus stat = _thread.start(mbed::callback(this, &SystemTask::run));
     if (stat != osOK) {
-        Serial.print("[ERROR] SystemTask: Fallo al iniciar hilo (codigo ");
-        Serial.print((int)stat);
-        Serial.println(" - Memoria insuficiente)");
+        DEBUG_PRINT("[ERROR] SystemTask: Fallo al iniciar hilo (codigo ");
+        DEBUG_PRINT((int)stat);
+        DEBUG_PRINTLN(" - Memoria insuficiente)");
     }
 }
 

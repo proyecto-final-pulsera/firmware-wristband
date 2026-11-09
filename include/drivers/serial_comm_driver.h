@@ -27,4 +27,12 @@ public:
     void attachRxInterrupt() override;
     bool processRxData(CommPacket* out_msg) override;
     bool sendPayload(MsgType type, const uint8_t* payload, uint16_t len) override;
+
+    // -------------------------------------------------------------------------
+    // Métodos Genéricos de Control y Ciclo de Vida
+    // -------------------------------------------------------------------------
+    bool isTxInProgress() const override { return false; }
+    void processEvents() override;
+    bool isConnected() override { return true; }
+    void disconnect() override {}
 };

@@ -16,9 +16,9 @@ MetricsData NotifyTelemetryTask::_shared_metrics_data = {0};
 void NotifyTelemetryTask::init() {
     osStatus stat = _thread.start(mbed::callback(this, &NotifyTelemetryTask::run));
     if (stat != osOK) {
-        Serial.print("[ERROR] NotifyTelemetryTask: Fallo al iniciar hilo (codigo ");
-        Serial.print((int)stat);
-        Serial.println(" - Memoria insuficiente)");
+        DEBUG_PRINT("[ERROR] NotifyTelemetryTask: Fallo al iniciar hilo (codigo ");
+        DEBUG_PRINT((int)stat);
+        DEBUG_PRINTLN(" - Memoria insuficiente)");
     }
 }
 

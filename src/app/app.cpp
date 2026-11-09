@@ -1,4 +1,6 @@
 #include "app/app.h"
+#include "app/config.h"
+#include "utils/debug.h"
 
 // Tareas
 #include "tasks/system_task.h"
@@ -33,9 +35,15 @@ void isr_bhi260() {
     SystemTask::getInstance().sendMsg(&msg);
 }
 
+#ifdef USE_SERIAL_COMM
+void isr_serial_rx() {
+    // Mockup: Recepcion serial deshabilitada temporalmente para evitar eventos espurios
+}
+#else
 void isr_serial_rx() {
 
 }
+#endif
 
 void isr_panic_button() {
     if (PanicButton::getInstance()->onInterrupt()) {
@@ -55,65 +63,66 @@ void isr_notif_button() {
     }
 }
 
-void onRxReceived() {
+#ifndef USE_SERIAL_COMM
+void isr_ble_rx() {
     AppMessage msg;
     msg.event_id = CommLinkTask::EVT_RX_PACKET;
     msg.emisor_id = TASK_ISR_ROUTINE;
     CommLinkTask::getInstance().sendMsg(&msg);
 }
+#endif
 
 // ============================================================================
 // INICIALIZACION GLOBAL DEL SISTEMA
 // ============================================================================
 void App::init() {
     // ------------------------------------------------------------------------
-    // 1. Instanciar e Inicializar Hardware y Drivers Base
+    // Instanciar e Inicializar Hardware y Drivers Base
     // ------------------------------------------------------------------------
     
-    // Comunicaciones BLE: Inicializar PRIMERO para que Cordio aloje sus 13 KB
-    // en un Heap 100% contiguo y libre de fragmentación.
+    DEBUG_PRINTLN("[App Init] Inicializando drivers");
+
+#ifdef USE_SERIAL_COMM
+    SerialCommDriver* comm = SerialCommDriver::getInstance();
+    comm->init();
+    // En modo serial unidireccional no se conecta la ISR de RX para evitar atender eventos espurios
+#else
     BleDriver* bleComm = BleDriver::getInstance();
     bleComm->init();
-    bleComm->attachRxNotifier(onRxReceived); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
-
-    Serial.println("[Init - BLE] BLE Configurado correctamente.");
-    Serial.println("[Init - BLE] Esperando conexión desde el smartphone...");
-
+    bleComm->attachRxNotifier(isr_ble_rx); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
+#endif
     // Vibrador 
     VibratorDriver* vibrator = VibratorDriver::getInstance();
     vibrator->init();
-    Serial.println("[Init - Vibrator OK]");
-
+    
     // PMIC (Bateri­a)
     BatteryDriver* battery = BatteryDriver::getInstance();
-    battery->init();
-    Serial.println("[Init - Battery OK]");    
+    battery->init();   
 
     // Sensor Principal BHI260
     BHI260Driver* bhi260 = BHI260Driver::getInstance();
     bhi260->init();
     bhi260->configureInterrupt(isr_bhi260);
-    Serial.println("[Init - BHI OK]");
 
     // Interfaz LED
     LedDriver* led = LedDriver::getInstance();
     led->init();
-    Serial.println("[Init - Led OK]");
 
+    DEBUG_PRINTLN("[App Init] Seteando IRQ Handlers");
     PanicButton* panicBtn = PanicButton::getInstance();
     panicBtn->setIrqHandler(isr_panic_button);
 
     NotifButton* notifBtn = NotifButton::getInstance();
     notifBtn->setIrqHandler(isr_notif_button);
-    Serial.println("[Init - Buttons OK]");
-
-    Serial.println("[Init - FLAG 01] Drivers OK.");
 
     // ------------------------------------------------------------------------
-    // 1.5 Inicializar Repositorios de Sensores
+    // Inicializar Repositorios de Sensores
     // ------------------------------------------------------------------------
+    
     bhi260->disableNonWakeupFIFO();
     
+    DEBUG_PRINTLN("[App Init] Inicializando repositorios");
+
     ImuRepository::getInstance()->begin((float)FREQ_IMU, LATENCIA_IMU);
     PressureRepository::getInstance()->begin((float)FREQ_PRESSURE, (uint32_t)-1);
     TemperatureRepository::getInstance()->begin(1.0f, (uint32_t)-1);
@@ -122,25 +131,25 @@ void App::init() {
     NoMotionRepository::getInstance()->begin(1.0f, 0);
     StepCounterRepository::getInstance()->begin(1.0f, (uint32_t)-1);
     
-    Serial.println("[Init - FLAG 01.5] Repositories OK.");      
-
     // ------------------------------------------------------------------------
-    // 2. Levantar las Tareas (Threads) del RTOS
+    // Levantar las Tareas (Threads) del RTOS
     // ------------------------------------------------------------------------
-    // Se configuran e inician los hilos.
     
+    DEBUG_PRINTLN("[App Init] Inicializando Tasks");
+
     CommLinkTask::getInstance().init();
     NotifyTelemetryTask::getInstance().init();
     PmicTask::getInstance().init();
     AlarmsEventsTask::getInstance().init();
     SystemTask::getInstance().init();
-    Serial.println("[Init - FLAG 02] All Tasks started.");
 
     // ------------------------------------------------------------------------
-    // 3. Habilitar Interrupciones (Post-RTOS)
+    // Habilitar Interrupciones (Post-RTOS)
     // ------------------------------------------------------------------------
     // Se habilitan al final para evitar que una ISR intente enviar un mensaje
     // a una tarea que todavia no fue inicializada.
+
+    DEBUG_PRINTLN("[App Init] Habilitacion de IRQ");
 
     bhi260->enableInterrupt();
     bhi260->flushFIFOs();
@@ -149,5 +158,6 @@ void App::init() {
     notifBtn->enableInterrupt();
     bleComm->attachRxInterrupt(); // Attachea la ISR al evento de Rx por BLE a nivel FW
     // serialDriver->attachRxInterrupt();
-    Serial.println("[Init - FLAG 03] Interrupts Enabled."); 
+
+    DEBUG_PRINTLN("[App Init] Inicializacion del sistema completada");
 }

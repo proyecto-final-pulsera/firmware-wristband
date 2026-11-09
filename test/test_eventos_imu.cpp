@@ -3,6 +3,7 @@
 //#include "drivers/led_interface.h"
 #include "SerialMenuDebug.h"
 #include "rtos.h"
+#include "utils/debug.h"
 
 static BHI260Driver* imu = nullptr;
 //static LedInterface* ledDriver = nullptr;
@@ -37,9 +38,9 @@ void runTestEventosImu() {
     // Test no arrancÃ³ todavÃ­a
     //ledDriver->setLedWarn();
     
-    Serial.println("\n================================================");
-    Serial.println("--- INICIANDO TEST DE EVENTOS IMU (10 SEG) ---");
-    Serial.println("Esperando 3 segundos antes de iniciar...");
+    DEBUG_PRINTLN("\n================================================");
+    DEBUG_PRINTLN("--- INICIANDO TEST DE EVENTOS IMU (10 SEG) ---");
+    DEBUG_PRINTLN("Esperando 3 segundos antes de iniciar...");
     delay(3000);
     
     // Se esta ejecutando el test
@@ -60,7 +61,7 @@ void runTestEventosImu() {
     // Limpiamos basura
     imu->flushFIFOs();
     
-    Serial.println("--- COMENZANDO SECUENCIA ---");
+    DEBUG_PRINTLN("--- COMENZANDO SECUENCIA ---");
     unsigned long start = millis();
     while (millis() - start <= 30000) {
         
@@ -100,8 +101,8 @@ void runTestEventosImu() {
     // El test finalizo
     //ledDriver->setLedAlarm();
     
-    Serial.println("--- FIN DE LA SECUENCIA ---");
-    Serial.println("Escriba 'EVENTOS' para ver los resultados.");
+    DEBUG_PRINTLN("--- FIN DE LA SECUENCIA ---");
+    DEBUG_PRINTLN("Escriba 'EVENTOS' para ver los resultados.");
     
     // Loop infinito esperando el menÃº serie
     while (true) {

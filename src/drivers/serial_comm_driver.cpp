@@ -38,6 +38,10 @@ bool SerialCommDriver::processRxData(CommPacket* out_msg) {
     return false;
 }
 
+void SerialCommDriver::processEvents() {
+    // Mockup para compatibilidad con el ciclo de la tarea de comunicación
+}
+
 
 
 bool SerialCommDriver::sendPayload(MsgType type, const uint8_t* payload, uint16_t len) {

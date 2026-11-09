@@ -8,6 +8,7 @@
 #include "tasks/alarms_events_task.h"
 #include "app/config.h"
 #include "drivers/comm_driver.h"
+#include "drivers/led_driver.h"
 
 // Struct de métricas como template para el futuro
 struct MetricsData {
@@ -33,14 +34,15 @@ private:
     CommPacket _rx_packet;
     uint8_t _retry_counts[16] = {0};
 
-    bool _is_authenticated = false;
+    bool _is_authenticated = true;
     uint8_t _auth_attempts = 0;
     uint32_t _auth_timer_start_ms = 0;
-    bool _was_connected = false;
+    bool _was_connected = true;
 
     // Métodos privados de procesamiento de recepción (RX)
-    void handleRxPacket();
-    void handleAuthPacket(const uint8_t* payload, uint16_t length);
+    void handleRxPacket(CommDriver* comm);
+    void handleAuthPacket(const uint8_t* payload, uint16_t length, CommDriver* comm);
+    void handleTxCommand(const AppMessage& msg, CommDriver* comm);
     void handleAck(MsgType ackedMsg, uint8_t status);
     void dispatchRetry(MsgType type);
 
