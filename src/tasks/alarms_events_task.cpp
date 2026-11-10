@@ -110,7 +110,7 @@ uint8_t AlarmsEventsTask::evaluateWindow(const uint16_t* magnitudes, uint16_t le
         }
         
         // 3. Evaluar Impacto (Alta dinámica -> evaluado sobre valor instantáneo)
-        if (x > THRESHOLD_IMPACT) {
+        if (media_ema > THRESHOLD_IMPACT) {
             flags |= FLAG_IMPACT;
         }
         
@@ -139,22 +139,42 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
     }
 
     uint8_t fall_flags = 0;
-
-    // Procesamiento del inicio del buffer en caso de WAKEUP
+    // Procesamiento de las ventanas inicial e intermedia en caso de WAKEUP
     if (process_preFall) {
+        // Etapa 1: Ventana inicial desde el inicio del buffer (muestras 0 a IMPACT_WINDOW_SIZE - 1)
         uint16_t count = imu->copyFifoMagnitudes(_magnitudes, IMPACT_WINDOW_SIZE, 0);
         fall_flags |= evaluateWindow(_magnitudes, count);
 
-        
+        // Etapa 2: Ventana intermedia (toma la mitad de muestras de la ventana inicial y mitad de la central)
+        if (fall_flags != FLAG_FALL_DETECTED) {
+            uint16_t count = imu->copyFifoMagnitudes(_magnitudes, IMPACT_WINDOW_SIZE, INTERMEDIATE_IMPACT_WINDOW_INDEX);
+            if (count != 0) {
+                fall_flags |= evaluateWindow(_magnitudes, count);
+            }
+        }
     }
 
-    // Segunda etapa (o única si no es wakeup): ventana del medio
+    // Etapa 3 (o única si no es wakeup): Ventana central
     if ((fall_flags & FLAG_FALL_DETECTED) != FLAG_FALL_DETECTED) {
         uint16_t count = imu->copyFifoMagnitudes(_magnitudes, IMPACT_WINDOW_SIZE, START_IMPACT_WINDOW_INDEX);
         fall_flags |= evaluateWindow(_magnitudes, count);
     }
 
     _lastEvaluatedFlags = fall_flags;
+    
+    // --- Debug de Flags Detectados ---
+    DEBUG_PRINT("[AlarmsEventsTask] Flags (0x");
+    DEBUG_PRINT(fall_flags, HEX);
+    DEBUG_PRINT("): ");
+    if (fall_flags == 0) {
+        DEBUG_PRINT("[NINGUNO]");
+    } else {
+        if (fall_flags & FLAG_FREE_FALL)         DEBUG_PRINT("[CAIDA_LIBRE] ");
+        if (fall_flags & FLAG_IMPACT)            DEBUG_PRINT("[IMPACTO] ");
+        if (fall_flags & FLAG_NO_MOVEMENT_LOW)   DEBUG_PRINT("[REPOSO_LOW] ");
+        if (fall_flags & FLAG_NO_MOVEMENT_HIGHT) DEBUG_PRINT("[REPOSO_HIGHT] ");
+    }
+    DEBUG_PRINTLN();
 
     return ((fall_flags & FLAG_FALL_DETECTED) == FLAG_FALL_DETECTED);
 }
