@@ -70,6 +70,17 @@
 #define BLE_AUTH_MAX_ATTEMPTS 3     // Maximo de intentos fallidos antes de desconectar
 
 // =============================================================================
+// --- Configuración de Control de Dispositivo Quitado (Off-Wrist) ---
+// =============================================================================
+#define OFF_WRIST_PROBE_INTERVAL_SEC  60
+#define OFF_WRIST_CONSECUTIVE_TARGET  5
+
+enum WarningId : uint8_t {
+    WARN_DEVICE_OFF_WRIST   = 0x01,
+    WARN_DEVICE_ON_WRIST    = 0x02
+};
+
+// =============================================================================
 // --- Configuración de Colas RTOS (Mailbox) ---
 // =============================================================================
 #ifndef TASK_QUEUE_SIZE

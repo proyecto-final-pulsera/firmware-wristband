@@ -47,6 +47,12 @@ void AlarmsEventsTask::run() {
                     notifyTask<SystemTask>(SystemTask::EVT_IMU_PROCESSED, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, _lastEvaluatedFlags | FLAG_IS_WAKEUP);
                     break;
                 }
+                case CMD_PROCESS_IMU_PROBE: {
+                    processImuWindowProbe();
+                    DEBUG_PRINT("[AlarmsEventsTask] Tiempo process Probe (us): "); DEBUG_PRINTLN(micros() - t_start);
+                    notifyTask<SystemTask>(SystemTask::EVT_IMU_PROCESSED, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, _lastEvaluatedFlags);
+                    break;
+                }
                 case CMD_STOP_PROCESS:
                     // Actualmente no tiene efecto en procesamiento on-demand
                     break;
@@ -176,4 +182,29 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
     DEBUG_PRINTLN();
 
     return ((fall_flags & FLAG_FALL_DETECTED) != 0);
+}
+
+bool AlarmsEventsTask::processImuWindowProbe() {
+    _lastEvaluatedFlags = 0;
+    ImuRepository* imu = ImuRepository::getInstance();
+    uint16_t count = imu->getAvailableCount();
+    
+    if (count == 0) {
+        return false;
+    }
+
+    // Limitamos a IMPACT_WINDOW_SIZE si hay demasiados datos (aunque no deberia pasar en modo probe)
+    uint16_t samplesToProcess = (count > IMPACT_WINDOW_SIZE) ? IMPACT_WINDOW_SIZE : count;
+    
+    // Tomamos las muestras mas recientes (tail)
+    uint16_t copied = imu->copyFifoMagnitudes(_magnitudes, samplesToProcess, 0);
+    uint8_t fall_flags = evaluateWindow(_magnitudes, copied);
+    
+    _lastEvaluatedFlags = fall_flags;
+    
+    DEBUG_PRINT("[AlarmsEventsTask] Probe Flags (0x");
+    DEBUG_PRINT(fall_flags, HEX);
+    DEBUG_PRINTLN(")");
+
+    return true;
 }

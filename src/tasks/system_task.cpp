@@ -19,6 +19,7 @@ void SystemTask::init() {
         DEBUG_PRINT((int)stat);
         DEBUG_PRINTLN(" - Memoria insuficiente)");
     }
+    setOffWristTimer(true);
 }
 
 bool SystemTask::sendMsg(AppMessage* msg) {
@@ -41,6 +42,14 @@ void SystemTask::setMetricsTimer(bool enable) {
     }
 }
 
+void SystemTask::setOffWristTimer(bool enable) {
+    if (enable) {
+        _offWristTicker.attach(mbed::callback(this, &SystemTask::onOffWristTick), std::chrono::seconds(OFF_WRIST_PROBE_INTERVAL_SEC));
+    } else {
+        _offWristTicker.detach();
+    }
+}
+
 void SystemTask::onKeepAliveTick() {
     // Desde la ISR del Ticker, metemos el evento a CommLinkTask
     notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_KEEP_ALIVE, TASK_SYSTEM, PRIORITY_LOW);
@@ -49,6 +58,10 @@ void SystemTask::onKeepAliveTick() {
 void SystemTask::onMetricsTick() {
     // Desde la ISR del Ticker, metemos el evento a NotifyTelemetryTask
     notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_NOTIF_ACTIVITY_DATA, TASK_SYSTEM, PRIORITY_LOW);
+}
+
+void SystemTask::onOffWristTick() {
+    notifyTask<SystemTask>(CMD_PROBE_OFF_WRIST, TASK_SYSTEM, PRIORITY_LOW);
 }
 
 enum TestState {
@@ -88,6 +101,9 @@ void SystemTask::run() {
                     _flag_imu_processed = true;
                     _last_imu_flags = msg.flags;
                     break;
+                case CMD_PROBE_OFF_WRIST:
+                    _flag_probe_off_wrist = true;
+                    break;
                 case EVT_TX_DELAYED:
                     _flag_process_full_buffer = true;
                     _delayed_tx_count++;
@@ -97,7 +113,7 @@ void SystemTask::run() {
         }
 
         // --- Evaluar Maquina de Estado del BHI ---
-        if (_flag_bhi_irq || _flag_bhi_updated || _flag_imu_processed) {
+        if (_flag_bhi_irq || _flag_bhi_updated || _flag_imu_processed || _flag_probe_off_wrist) {
             updateBhiMde();
         }
 
@@ -125,6 +141,11 @@ void SystemTask::updateBhiMde() {
                 DEBUG_PRINTLN("[BHI_MDE] IRQ recibida. IDLE_SLEEP -> WAKEUP_WAIT_FIRST_FIFO_UPDATE");
                 notifyTask<AlarmsEventsTask>(AlarmsEventsTask::UPDATE_BUFFER_BHI);
                 _bhi_mde_state = WAKEUP_WAIT_FIRST_FIFO_UPDATE;
+            } else if (_flag_probe_off_wrist) {
+                DEBUG_PRINTLN("[BHI_MDE] Sondeo Off-Wrist. IDLE_SLEEP -> OFF_WRIST_WAIT_FIFO_UPDATE");
+                BHI260Driver::getInstance()->enableNonWakeupFIFO();
+                notifyTask<AlarmsEventsTask>(AlarmsEventsTask::UPDATE_BUFFER_BHI);
+                _bhi_mde_state = OFF_WRIST_WAIT_FIFO_UPDATE;
             }
             break;
 
@@ -135,6 +156,13 @@ void SystemTask::updateBhiMde() {
             if (_flag_bhi_updated) {
                 if (MotionRepository::getInstance()->hasEventOccurred()) {
                     DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado! Activating sensors...");
+                    if (_is_device_off_wrist) {
+                        DEBUG_PRINTLN("[BHI_MDE] Dispositivo vuelto a colocar (wakeup). Notificando...");
+                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_WARNING, TASK_SYSTEM, PRIORITY_NORMAL, WARN_DEVICE_ON_WRIST);
+                        _is_device_off_wrist = false;
+                    }
+                    _off_wrist_consecutive_count = 0;
+
                     // Activar non wakeup fifo
                     BHI260Driver::getInstance()->enableNonWakeupFIFO();
                     
@@ -267,12 +295,71 @@ void SystemTask::updateBhiMde() {
                 }
             }
             break;
+
+        // ====================================================================
+        // 4. ESCENARIO DE SONDEO OFF-WRIST
+        // ====================================================================
+        case OFF_WRIST_WAIT_FIFO_UPDATE:
+            if (_flag_bhi_updated) {
+                if (MotionRepository::getInstance()->hasEventOccurred()) {
+                    DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado! Abortando sondeo Off-Wrist -> REGIME_WAIT_FIFO_IRQ");
+                    if (_is_device_off_wrist) {
+                        DEBUG_PRINTLN("[BHI_MDE] Dispositivo vuelto a colocar. Notificando...");
+                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_WARNING, TASK_SYSTEM, PRIORITY_NORMAL, WARN_DEVICE_ON_WRIST);
+                        _is_device_off_wrist = false;
+                    }
+                    MotionRepository::getInstance()->clearEventFlag();
+                    NoMotionRepository::getInstance()->clearEventFlag();
+                    NoMotionRepository::getInstance()->begin(1.0f, 0);
+                    _off_wrist_consecutive_count = 0;
+                    _bhi_mde_state = REGIME_WAIT_FIFO_IRQ;
+                } else {
+                    notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU_PROBE);
+                    _bhi_mde_state = OFF_WRIST_WAIT_PROCESS_RESULT;
+                }
+            }
+            break;
+
+        case OFF_WRIST_WAIT_PROCESS_RESULT:
+            if (_flag_imu_processed) {
+                if (_last_imu_flags & FLAG_NO_MOVEMENT_HIGH) {
+                    _off_wrist_consecutive_count++;
+                    DEBUG_PRINT("[BHI_MDE] Inmovilidad estricta detectada. Contador: ");
+                    DEBUG_PRINT(_off_wrist_consecutive_count);
+                    DEBUG_PRINT("/");
+                    DEBUG_PRINTLN(OFF_WRIST_CONSECUTIVE_TARGET);
+
+                    if (_off_wrist_consecutive_count >= OFF_WRIST_CONSECUTIVE_TARGET) {
+                        if (!_is_device_off_wrist) {
+                            DEBUG_PRINTLN("[BHI_MDE] Dispositivo quitado confirmado! Notificando...");
+                            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_WARNING, TASK_SYSTEM, PRIORITY_NORMAL, WARN_DEVICE_OFF_WRIST);
+                            _is_device_off_wrist = true;
+                        }
+                    }
+                    BHI260Driver::getInstance()->disableNonWakeupFIFO();
+                    _bhi_mde_state = STATE_IDLE_SLEEP;
+                } else {
+                    DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado en sondeo Off-Wrist -> REGIME_WAIT_FIFO_IRQ");
+                    if (_is_device_off_wrist) {
+                        DEBUG_PRINTLN("[BHI_MDE] Dispositivo vuelto a colocar. Notificando...");
+                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_WARNING, TASK_SYSTEM, PRIORITY_NORMAL, WARN_DEVICE_ON_WRIST);
+                        _is_device_off_wrist = false;
+                    }
+                    MotionRepository::getInstance()->clearEventFlag();
+                    NoMotionRepository::getInstance()->clearEventFlag();
+                    NoMotionRepository::getInstance()->begin(1.0f, 0);
+                    _off_wrist_consecutive_count = 0;
+                    _bhi_mde_state = REGIME_WAIT_FIFO_IRQ;
+                }
+            }
+            break;
     }
 
     // Limpiar flags para la proxima corrida
     _flag_bhi_irq = false;
     _flag_bhi_updated = false;
     _flag_imu_processed = false;
+    _flag_probe_off_wrist = false;
 }
 
 void SystemTask::updateButtonsMde() {

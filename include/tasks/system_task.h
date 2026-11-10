@@ -50,13 +50,25 @@ private:
         // --- 3. Estados para Poner a Dormir (Verificación de Inmovilidad) ---
         SLEEP_WAIT_VERIFICATION_IRQ,
         SLEEP_WAIT_FIFO_UPDATE,
-        SLEEP_WAIT_PROCESS_RESULT
+        SLEEP_WAIT_PROCESS_RESULT,
+
+        // --- 4. Sondeo Dispositivo Quitado ---
+        OFF_WRIST_WAIT_FIFO_UPDATE,
+        OFF_WRIST_WAIT_PROCESS_RESULT
     };
     BhiMdeState _bhi_mde_state = STATE_IDLE_SLEEP;
     uint8_t _bhi_disconnect_counter = 0;
+    
+    // Ticker para sondeo Off-Wrist
+    mbed::Ticker _offWristTicker;
+    void onOffWristTick();
+    void setOffWristTimer(bool enable);
+    uint8_t _off_wrist_consecutive_count = 0;
+    bool _is_device_off_wrist = false;
     bool _flag_bhi_irq = false;
     bool _flag_bhi_updated = false;
     bool _flag_imu_processed = false;
+    bool _flag_probe_off_wrist = false;
     uint8_t _last_imu_flags = 0;
     bool _flag_process_full_buffer = false;
     uint32_t _delayed_tx_count = 0;
@@ -98,6 +110,7 @@ public:
         EVT_BHI_INTERRUPT,
         EVT_TX_DELAYED,
         EVT_IMU_PROCESSED,
+        CMD_PROBE_OFF_WRIST,
     };
 
     uint32_t getDelayedTxCount() const { return _delayed_tx_count; }

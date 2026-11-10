@@ -53,6 +53,7 @@ protected:
     enum EventId : uint8_t {
         CMD_PROCESS_IMU,
         CMD_PROCESS_IMU_WAKEUP,
+        CMD_PROCESS_IMU_PROBE,
         CMD_STOP_PROCESS,
         EVT_PANIC_BUTTON,
         UPDATE_BUFFER_BHI,
@@ -79,6 +80,7 @@ protected:
     
     // Funcion de procesamiento (retorna true si hubo caida)
     bool processImuWindow(bool process_preFall);
+    bool processImuWindowProbe();
 
 public:
     static AlarmsEventsTask& getInstance() {
