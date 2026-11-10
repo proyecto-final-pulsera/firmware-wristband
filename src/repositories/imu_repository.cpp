@@ -1,16 +1,11 @@
 #include "repositories/imu_repository.h"
-
-ImuRepository* ImuRepository::_instance = nullptr;
-
-ImuRepository* ImuRepository::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new ImuRepository();
-    }
-    return _instance;
-}
+#include <algorithm>
+#include <cstring>
+#include <cstdlib>
 
 ImuRepository* ImuRepository::getInstance() {
-    return createInstance();
+    static ImuRepository instance;
+    return &instance;
 }
 
 ImuRepository::ImuRepository() 
@@ -47,8 +42,20 @@ String ImuRepository::toString() {
     return _lastData.toString();
 }
 
+void ImuRepository::lock() {
+    _mutex.lock();
+}
+
+void ImuRepository::unlock() {
+    _mutex.unlock();
+}
+
 void ImuRepository::fifoFlush() {
     rtos::ScopedMutexLock lock(_mutex);
+    fifoFlushUnprotected();
+}
+
+void ImuRepository::fifoFlushUnprotected() {
     _head = 0;
     _tail = 0;
     _count = 0;
@@ -58,6 +65,7 @@ void ImuRepository::fifoFlush() {
 }
 
 bool ImuRepository::push(const DataXYZ& data) {
+    rtos::ScopedMutexLock lock(_mutex);
     bool overwritten = false;
     
     _totalPushed++; // Contamos estadísticamente cuántos ingresaron
@@ -78,6 +86,11 @@ bool ImuRepository::push(const DataXYZ& data) {
 }
 
 bool ImuRepository::pop(DataXYZ& data) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return popUnprotected(data);
+}
+
+bool ImuRepository::popUnprotected(DataXYZ& data) {
     if (_count == 0) {
         return false; // FIFO vacía
     }
@@ -90,22 +103,31 @@ bool ImuRepository::pop(DataXYZ& data) {
 }
 
 uint16_t ImuRepository::getAvailableCount() const {
+    rtos::ScopedMutexLock lock(_mutex);
+    return _count;
+}
+
+uint16_t ImuRepository::getAvailableCountUnprotected() const {
     return _count;
 }
 
 bool ImuRepository::isFull() const {
+    rtos::ScopedMutexLock lock(_mutex);
     return _count == IMU_FIFO_SIZE;
 }
 
 bool ImuRepository::hasOverflowed() const {
+    rtos::ScopedMutexLock lock(_mutex);
     return _overflow;
 }
 
 void ImuRepository::clearOverflow() {
+    rtos::ScopedMutexLock lock(_mutex);
     _overflow = false;
 }
 
 uint16_t ImuRepository::rewind(uint16_t steps) {
+    rtos::ScopedMutexLock lock(_mutex);
     // Calculamos el historial máximo físicamente presente en la memoria
     uint32_t totalValid = (_totalPushed < IMU_FIFO_SIZE) ? _totalPushed : IMU_FIFO_SIZE;
     uint16_t maxRewind = totalValid - _count;
@@ -140,11 +162,40 @@ uint16_t ImuRepository::getFifoValues(DataXYZ* buffer, uint16_t maxLen) {
     
     // Sacamos datos hasta vaciar la FIFO o llenar el buffer provisto
     while (_count > 0 && extracted < maxLen) {
-        pop(buffer[extracted]);
+        popUnprotected(buffer[extracted]);
         extracted++;
     }
     
     return extracted;
+}
+
+const DataXYZ* ImuRepository::getLinearBuffer(uint16_t* outCount) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return getLinearBufferUnprotected(outCount);
+}
+
+const DataXYZ* ImuRepository::getLinearBufferUnprotected(uint16_t* outCount) {
+    if (_count == 0) {
+        if (outCount) *outCount = 0;
+        return nullptr;
+    }
+    if (_tail != 0) {
+        if (_count == IMU_FIFO_SIZE) {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[IMU_FIFO_SIZE]);
+            _tail = 0;
+            _head = 0;
+        } else if (_head > _tail) {
+            std::memmove(&_fifo[0], &_fifo[_tail], _count * sizeof(DataXYZ));
+            _tail = 0;
+            _head = _count;
+        } else {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[IMU_FIFO_SIZE]);
+            _tail = 0;
+            _head = _count % IMU_FIFO_SIZE;
+        }
+    }
+    if (outCount) *outCount = _count;
+    return _fifo;
 }
 
 uint16_t ImuRepository::copyFifoValues(DataXYZ* buffer, uint16_t maxLen) {
@@ -180,4 +231,32 @@ uint32_t ImuRepository::getTotalPushed() const {
 
 void ImuRepository::resetTotalPushed() {
     _totalPushed = 0;
+}
+
+
+uint16_t ImuRepository::sumaPitagorica(int16_t x, int16_t y, int16_t z) {
+    uint16_t abs_x = abs(x);
+    uint16_t abs_y = abs(y);
+    uint16_t abs_z = abs(z);
+    uint16_t mag_xy = approx2DImproved(abs_x, abs_y);
+    return approx2DImproved(mag_xy, abs_z);
+}
+
+uint16_t ImuRepository::copyFifoMagnitudes(uint16_t* buffer, uint16_t maxLen, uint16_t index) {
+    rtos::ScopedMutexLock lock(_mutex);
+    if (index >= _count || buffer == nullptr) {
+        return 0;
+    }
+
+    uint16_t elementsToCopy = _count - index;
+    if (elementsToCopy > maxLen) {
+        elementsToCopy = maxLen;
+    }
+
+    for (uint16_t i = 0; i < elementsToCopy; i++) {
+        const DataXYZ& sample = _fifo[(_tail + index + i) % IMU_FIFO_SIZE];
+        buffer[i] = sumaPitagorica(sample.x, sample.y, sample.z);
+    }
+
+    return elementsToCopy;
 }

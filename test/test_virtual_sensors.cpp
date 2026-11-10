@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "test_virtual_sensors.h"
 #include "drivers/bhi260_driver.h"
+#include "utils/debug.h"
 
 static BHI260Driver* imu_test_ptr = nullptr;
 
@@ -32,13 +33,13 @@ void runVirtualSensorsTest() {
       SENSOR_ID_MOTION_DET
   };
 
-  Serial.println("--- INICIANDO TEST DE SENSORES DE EVENTO ---");
+  DEBUG_PRINTLN("--- INICIANDO TEST DE SENSORES DE EVENTO ---");
 
   for (int i = 0; i < sizeof(testSensors)/sizeof(uint8_t); i++) {
     uint8_t id = testSensors[i];
     bool present = imu_test_ptr->hasSensor(id);
-    Serial.print("Sensor ID "); Serial.print(id);
-    Serial.print(" presente en FW: "); Serial.println(present ? "SI" : "NO");
+    DEBUG_PRINT("Sensor ID "); DEBUG_PRINT(id);
+    DEBUG_PRINT(" presente en FW: "); DEBUG_PRINTLN(present ? "SI" : "NO");
     
     if (present) {
       // Habilitar todos con 1.0f
@@ -49,7 +50,7 @@ void runVirtualSensorsTest() {
   // Vaciamos FIFOs iniciales (meta eventos) para obligar al pin físico a bajar a LOW
   imu_test_ptr->flushFIFOs();
   
-  Serial.println("--- LISTO PARA RECIBIR EVENTOS ---");
+  DEBUG_PRINTLN("--- LISTO PARA RECIBIR EVENTOS ---");
 }
 
 void loopVirtualSensorsTest() {
@@ -64,16 +65,16 @@ void loopVirtualSensorsTest() {
     if (imu_test_ptr->readSensorData(data)) {
       
       switch (data.sensorId) {
-        case SENSOR_ID_STC: Serial.println(">>> EVENTO 53: Step Counter Wakeup!"); break;
-        case SENSOR_ID_STD: Serial.println(">>> EVENTO 94: Step Detector Wakeup!"); break;
-        case SENSOR_ID_TILT_DETECTOR: Serial.println(">>> EVENTO 48: Tilt Detector!"); break;
-        case SENSOR_ID_WAKE_GESTURE: Serial.println(">>> EVENTO 57: Wake Gesture!"); break;
-        case SENSOR_ID_GLANCE_GESTURE: Serial.println(">>> EVENTO 59: Glance Gesture!"); break;
-        case SENSOR_ID_PICKUP_GESTURE: Serial.println(">>> EVENTO 61: Pickup Gesture!"); break;
-        case SENSOR_ID_WRIST_TILT_GESTURE: Serial.println(">>> EVENTO 67: Wrist Tilt Gesture!"); break;
-        case SENSOR_ID_DEVICE_ORI: Serial.println(">>> EVENTO 70: Device Orientation Wakeup!"); break;
-        case SENSOR_ID_STATIONARY_DET: Serial.println(">>> EVENTO 75: Stationary Detect!"); break;
-        case SENSOR_ID_MOTION_DET: Serial.println(">>> EVENTO 77: Motion Detect!"); break;
+        case SENSOR_ID_STC: DEBUG_PRINTLN(">>> EVENTO 53: Step Counter Wakeup!"); break;
+        case SENSOR_ID_STD: DEBUG_PRINTLN(">>> EVENTO 94: Step Detector Wakeup!"); break;
+        case SENSOR_ID_TILT_DETECTOR: DEBUG_PRINTLN(">>> EVENTO 48: Tilt Detector!"); break;
+        case SENSOR_ID_WAKE_GESTURE: DEBUG_PRINTLN(">>> EVENTO 57: Wake Gesture!"); break;
+        case SENSOR_ID_GLANCE_GESTURE: DEBUG_PRINTLN(">>> EVENTO 59: Glance Gesture!"); break;
+        case SENSOR_ID_PICKUP_GESTURE: DEBUG_PRINTLN(">>> EVENTO 61: Pickup Gesture!"); break;
+        case SENSOR_ID_WRIST_TILT_GESTURE: DEBUG_PRINTLN(">>> EVENTO 67: Wrist Tilt Gesture!"); break;
+        case SENSOR_ID_DEVICE_ORI: DEBUG_PRINTLN(">>> EVENTO 70: Device Orientation Wakeup!"); break;
+        case SENSOR_ID_STATIONARY_DET: DEBUG_PRINTLN(">>> EVENTO 75: Stationary Detect!"); break;
+        case SENSOR_ID_MOTION_DET: DEBUG_PRINTLN(">>> EVENTO 77: Motion Detect!"); break;
       }
 
       // Si el sensor es One-Shot, se auto-desactiva al dispararse.

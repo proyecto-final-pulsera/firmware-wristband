@@ -24,9 +24,6 @@ private:
      * no-wakeup (BHI260Driver::ID_ACCEL) y resetea la FIFO.
      */
     ImuRepository();
-    
-    static ImuRepository* _instance;
-    static ImuRepository* createInstance();
 
 public:
     virtual ~ImuRepository();
@@ -121,6 +118,14 @@ public:
     uint16_t getFifoValues(DataXYZ* buffer, uint16_t maxLen);
 
     /**
+     * @brief Lineariza la FIFO circular en el buffer interno _fifo (in-place)
+     * y retorna el puntero directo para transmisión sin requerir buffers duplicados.
+     * @param outCount Puntero donde se devuelve la cantidad de elementos disponibles.
+     * @return Puntero constante a los datos contiguos en _fifo, o nullptr si está vacía.
+     */
+    const DataXYZ* getLinearBuffer(uint16_t* outCount);
+
+    /**
      * @brief Copia los datos actuales de la FIFO sin extraerlos (sin pop).
      */
     uint16_t copyFifoValues(DataXYZ* buffer, uint16_t maxLen);
@@ -135,12 +140,44 @@ public:
      */
     uint16_t copyFifoValuesUnprotected(DataXYZ* buffer, uint16_t maxLen, uint16_t index) const;
 
+    /**
+     * @brief Algoritmos matemáticos de aproximación 3D para cálculo de magnitudes.
+     */
+    static inline uint16_t approx2DImproved(uint16_t a, uint16_t b) {
+        uint16_t max_val = (a > b) ? a : b;
+        uint16_t min_val = (a < b) ? a : b;
+        uint16_t z0 = max_val;
+        uint16_t z1_max = max_val - (max_val >> 3); 
+        uint16_t z1_min = (min_val >> 1) + (min_val >> 5);
+        uint16_t z1 = z1_max + z1_min;
+        return (z0 > z1) ? z0 : z1;
+    }
+
+    static uint16_t sumaPitagorica(int16_t x, int16_t y, int16_t z);
+
+    /**
+     * @brief Calcula la magnitud 3D de las muestras de la FIFO y las copia en el buffer provisto (protegido por Mutex).
+     * @param buffer Array de destino provisto por el llamador.
+     * @param maxLen Capacidad máxima a escribir.
+     * @param index Índice lógico inicial (0 es el dato más antiguo disponible).
+     * @return Cantidad de magnitudes calculadas y copiadas.
+     */
+    uint16_t copyFifoMagnitudes(uint16_t* buffer, uint16_t maxLen, uint16_t index = 0);
+
+    void lock();
+    void unlock();
+
+    void fifoFlushUnprotected();
+    const DataXYZ* getLinearBufferUnprotected(uint16_t* outCount);
+    bool popUnprotected(DataXYZ& data);
+    uint16_t getAvailableCountUnprotected() const;
+
     // --- Métodos temporales de Test ---
     uint32_t getTotalPushed() const;
     void resetTotalPushed();
 
 private:
-    rtos::Mutex _mutex;
+    mutable rtos::Mutex _mutex;
     DataXYZ _fifo[IMU_FIFO_SIZE];
     uint16_t _head;   // Índice donde se insertará el próximo elemento
     uint16_t _tail;   // Índice del elemento más antiguo para extraer

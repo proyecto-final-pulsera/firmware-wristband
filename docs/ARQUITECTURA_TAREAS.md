@@ -122,11 +122,12 @@ A continuación, se detalla el rol, los disparadores, la comunicación y el acce
 
 ### B. Alarms & Events Task (`AlarmsEventsTask`)
 
-* **Rol / Responsabilidad:** Ejecutar el procesamiento algorítmico y matemático complejo. Extrae los datos desde el sensor IMU (I2C) y corre la lógica (Ventana de análisis) que determina si el usuario se cayó o no.
+* **Rol / Responsabilidad:** Ejecutar el procesamiento algorítmico y matemático complejo. Extrae los datos desde el sensor IMU (I2C) y corre la lógica (Ventana de análisis de 6 segundos) que determina si el usuario se cayó o no.
+  * **Algoritmo de Detección:** Evalúa secuencialmente la fase de ingravidez (`THRESHOLD_FREE_FALL = 2000`) y la fase de impacto (`THRESHOLD_IMPACT = 7000`). La calibración del umbral de caída libre en 2000 confiere alta sensibilidad para capturar caídas dinámicas y desbalances amortiguados, minimizando drásticamente los falsos negativos sin generar falsos positivos.
 * **Disparadores y Condiciones:** Duerme bloqueada de forma infinita hasta que `SystemTask` le envía un mensaje por buzón pidiéndole actualizar memoria o procesar un impacto.
 * **Interacciones (Envía Mensajes a):**
-  * `CommLinkTask`: Si detecta una caída u otro evento, empaqueta los datos de alerta (`CMD_TX_ALARM`) y le ordena extraer el historial completo (snapshot) para su envío por serie (`CMD_TX_IMU_BUFFER`).
-* **Hardware y Repositorios:** Llama recurrentemente a `BHI260Driver->getSensorData()`. Actualiza _casi todos_ los repositorios con nuevos datos: `ImuRepository`, `PressureRepository`, `TemperatureRepository`, y `StepCounterRepository`.
+  * `CommLinkTask`: Si detecta una caída u otro evento, empaqueta los datos de alerta (`CMD_TX_ALARM`) y le ordena transmitir el historial completo de sensores (`CMD_TX_FALL_SENSORS` o `CMD_TX_IMU_BUFFER`).
+* **Hardware y Repositorios:** Llama recurrentemente a `BHI260Driver->getSensorData()`. Actualiza los repositorios con nuevos datos mediante `push()`: `ImuRepository`, `PressureRepository`, `TemperatureRepository`, y `StepCounterRepository`. Al escribir, `push()` adquiere brevemente el Mutex interno de cada repositorio para proteger la estructura frente a accesos concurrentes.
 
 ### C. Notify & Telemetry Task (`NotifyTelemetryTask`)
 
@@ -138,10 +139,10 @@ A continuación, se detalla el rol, los disparadores, la comunicación y el acce
 
 ### D. Communication Link Task (`CommLinkTask`)
 
-* **Rol / Responsabilidad:** Encargada del envío y recepción hacia el mundo exterior (Por ahora un enlace UART "By-pass", a futuro un módulo BLE o Lora). Se responsabiliza de empaquetar, calcular CRC, y asegurar la integridad en las tramas salientes.
+* **Rol / Responsabilidad:** Encargada del envío y recepción hacia el mundo exterior (enlace UART binario estructurado con tramas y doble CRC-8). Se responsabiliza de empaquetar, calcular CRC, y asegurar la integridad en las tramas salientes.
 * **Disparadores y Condiciones:** Duerme permanentemente. Únicamente se despierta cuando cualquier otra tarea del sistema le deposita un paquete (o un _pointer_ al mismo) en su Mailbox solicitando que lo transmita.
 * **Interacciones:** Funciona como un _sumidero_ pasivo. Las demás tareas se comunican _hacia_ ella, pero ella solo transmite por hardware (Tx) hacia afuera.
-* **Hardware y Repositorios:** Domina en exclusiva el `CommDriver`. Para tramas pesadas (como el snapshot pre/post impacto), en lugar de traficar megabytes por mensajes, esta tarea lee directamente los búferes en anillo en el `ImuRepository` y `PressureRepository` para enviarlos fragmentadamente.
+* **Hardware y Repositorios:** Domina en exclusiva el `CommDriver`. Para tramas pesadas (como el snapshot de caída `CMD_TX_FALL_SENSORS` o `CMD_TX_IMU_BUFFER`), no duplica buffers en RAM; en su lugar, accede a la memoria contigua de `ImuRepository` y `PressureRepository` bajo un esquema de **bloqueo extendido** (`repo->lock()`), extrayendo el buffer lineal (`getLinearBufferUnprotected()`), transmitiéndolo vía `sendPayload()` y vaciando lo enviado (`fifoFlushUnprotected()`) antes de liberar el cerrojo (`repo->unlock()`).
 
 ### E. PMIC Task (`PmicTask`)
 
@@ -158,3 +159,13 @@ La filosofía del RTOS impone que los tiempos muertos dentro de una ISR (Interru
 
 * **Pines de Hardware (Botones e IMU):** Los rebotes de GPIO o el pin HINT del BHI260 disparan funciones en código asíncrono. Ninguna de estas funciones ejecuta lógica. Su única directiva es construir un `AppMessage` extremadamente corto y enviarlo mediante `_mailbox.try_put()` o equivalentes a la `SystemTask`. Esto saca al procesador de la IRQ inmediatamente y delega todo el cómputo pesado al entorno seguro del RTOS Threading de la System Task.
 * **Tickers Cíclicos (Keep Alive / Metrics):** Los envíos periódicos de salud (Ping o Métricas) se gestionan configurando un temporizador de Mbed (`mbed::Ticker`). Dicho temporizador se asocia a interrupciones por Timer nativas. Al saltar la IRQ, se ejecuta una función corta (`onKeepAliveTick` o `onMetricsTick` en `SystemTask`) que se encarga exclusivamente de encolar un mensaje de disparo hacia `CommLinkTask` o `NotifyTelemetryTask` respectivamente. De esta manera, el RTOS despierta armónicamente las tareas en el próximo ciclo sin consumir procesador en bucles de espera pasiva.
+
+---
+
+## 4. Sincronización y Exclusión Mutua en Repositorios (Locks de Transmisión vs. Escritura)
+
+Debido a que `ImuRepository` y `PressureRepository` son accedidos concurrentemente por `AlarmsEventsTask` (productor que escribe vía `push()`) y `CommLinkTask` (consumidor que lee y transmite bloques de hasta 4.8 KB):
+
+1. **Riesgo de Inconsistencia:** Si la transmisión I/O se realizara fuera de una sección crítica, `AlarmsEventsTask` podría inyectar nuevas muestras en el buffer mientras `CommLinkTask` las transmite, corrompiendo la memoria contigua o provocando que el posterior vaciado (`fifoFlush`) destruya las muestras recién ingresadas.
+2. **Patrón Atómico Lock / Unlock:** `CommLinkTask` encierra la lectura contigua, la transmisión serie y el vaciado entre `repo->lock()` y `repo->unlock()`, utilizando exclusivamente las variantes `*Unprotected()` (`getLinearBufferUnprotected()`, `fifoFlushUnprotected()`).
+3. **Comportamiento en Escritura:** Si `AlarmsEventsTask` intenta escribir mediante `push()` durante el lapso de transmisión, la llamada a `rtos::ScopedMutexLock lock(_mutex)` se suspenderá automáticamente de forma transparente en el RTOS hasta que `CommLinkTask` invoque `repo->unlock()`, garantizando cero pérdida o corrupción de datos.

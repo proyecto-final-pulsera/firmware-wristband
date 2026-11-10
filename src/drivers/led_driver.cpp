@@ -1,12 +1,8 @@
 #include "drivers/led_driver.h"
 
-LedDriver* LedDriver::_instance = nullptr;
-
 LedDriver* LedDriver::getInstance() {
-    if (_instance == nullptr) {
-        _instance = new LedDriver();
-    }
-    return _instance;
+    static LedDriver instance;
+    return &instance;
 }
 
 LedDriver::LedDriver() : _ledState(false), _ledColor(RGBColors::off) {
@@ -14,7 +10,10 @@ LedDriver::LedDriver() : _ledState(false), _ledColor(RGBColors::off) {
 
 void LedDriver::init() {
     nicla::leds.begin();
-    nicla::leds.setColor(RGBColors::off);
+    // Estado inicial: Azul encendido (indica esperando conexión BLE)
+    _ledColor = RGBColors::blue;
+    _ledState = true;
+    nicla::leds.setColor(RGBColors::blue);
 }
 
 void LedDriver::setLedState(bool active) {

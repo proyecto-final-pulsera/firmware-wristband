@@ -123,25 +123,19 @@ bool ButtonDriver::getPressed() {
 // Implementación de PanicButton
 // ==================================================================
 
-PanicButton* PanicButton::_instance = nullptr;
-
 PanicButton::PanicButton() 
     : ButtonDriver(PANIC_BUTTON_PIN, false, RISING) 
 {
 }
 
 PanicButton* PanicButton::getInstance() {
-    if (_instance == nullptr) {
-        _instance = new PanicButton();
-    }
-    return _instance;
+    static PanicButton instance;
+    return &instance;
 }
 
 // ==================================================================
 // Implementación de NotifButton
 // ==================================================================
-
-NotifButton* NotifButton::_instance = nullptr;
 
 NotifButton::NotifButton() 
     : ButtonDriver(NOTIF_BUTTON_PIN, false, RISING) 
@@ -149,8 +143,6 @@ NotifButton::NotifButton()
 }
 
 NotifButton* NotifButton::getInstance() {
-    if (_instance == nullptr) {
-        _instance = new NotifButton();
-    }
-    return _instance;
+    static NotifButton instance;
+    return &instance;
 }

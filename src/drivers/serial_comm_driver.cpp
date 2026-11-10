@@ -1,16 +1,8 @@
 #include "drivers/serial_comm_driver.h"
 
-SerialCommDriver* SerialCommDriver::_instance = nullptr;
-
 SerialCommDriver* SerialCommDriver::getInstance() {
-    if (_instance == nullptr) {
-        _instance = createInstance();
-    }
-    return _instance;
-}
-
-SerialCommDriver* SerialCommDriver::createInstance() {
-    return new SerialCommDriver();
+    static SerialCommDriver instance;
+    return &instance;
 }
 
 void SerialCommDriver::init() {
@@ -20,9 +12,7 @@ void SerialCommDriver::init() {
 }
 
 void SerialCommDriver::onSerialRx() {
-    if (_instance != nullptr) {
-        _instance->notifyRxFromISR();
-    }
+    getInstance()->notifyRxFromISR();
 }
 
 void SerialCommDriver::attachRxInterrupt() {
@@ -46,6 +36,10 @@ bool SerialCommDriver::processRxData(CommPacket* out_msg) {
         Serial.read();
     }
     return false;
+}
+
+void SerialCommDriver::processEvents() {
+    // Mockup para compatibilidad con el ciclo de la tarea de comunicación
 }
 
 

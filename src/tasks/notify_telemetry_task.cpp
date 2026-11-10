@@ -14,7 +14,12 @@ BatteryData NotifyTelemetryTask::_shared_battery_data = {0, false};
 MetricsData NotifyTelemetryTask::_shared_metrics_data = {0};
 
 void NotifyTelemetryTask::init() {
-    _thread.start(mbed::callback(this, &NotifyTelemetryTask::run));
+    osStatus stat = _thread.start(mbed::callback(this, &NotifyTelemetryTask::run));
+    if (stat != osOK) {
+        DEBUG_PRINT("[ERROR] NotifyTelemetryTask: Fallo al iniciar hilo (codigo ");
+        DEBUG_PRINT((int)stat);
+        DEBUG_PRINTLN(" - Memoria insuficiente)");
+    }
 }
 
 bool NotifyTelemetryTask::sendMsg(AppMessage* msg) {
@@ -114,7 +119,7 @@ void NotifyTelemetryTask::run() {
     }
 }
 
-uint32_t NotifyTelemetryTask::decodeVibratorDuration(uint32_t flags) {
+uint32_t NotifyTelemetryTask::decodeVibratorDuration(uint8_t flags) {
     if (flags & VIB_DURATION_4S) return VIB_TIME_4S_MS;
     if (flags & VIB_DURATION_7S) return VIB_TIME_7S_MS;
     return VIB_TIME_2S_MS;

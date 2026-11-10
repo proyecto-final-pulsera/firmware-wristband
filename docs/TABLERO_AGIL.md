@@ -4,25 +4,23 @@ Este archivo servirá como nuestra memoria y hoja de ruta compartida (sprint bac
 
 ## Sprint Actual
 
-- [ ] **Detección de dispositivo puesto (Off-Wrist Detection)**
+- [ ] **1. Reducción del flujo de buffers a 12 segundos y adaptación del pipeline**
+  * **Descripción:** Modificar el flujo de los buffers para reducir su tamaño total a 12 segundos de retención. Ajustar los buffers de procesamiento, la latencia de los sensores y la geometría de ventanas.
+  * **Criterio de aceptación:** El sistema debe detectar caídas mediante los métodos actuales con la nueva geometría de buffers (12s total, ventana de impacto de 6s y solapamiento del 50%) y ser capaz de transmitir el paquete completo de sensores por puerto serie sin desbordamientos ni corrupción.
+  * **Subtareas:**
+    - [ ] Configuración: Ajustar `LEN_BUFFER_IMU_SEG = 12` (600 muestras) y `LEN_BUFFER_PRESSURE_SEG = 12` (192 muestras) en `config.h`.
+    - [ ] Pipeline: Verificar `START_IMPACT_WINDOW_INDEX = 150` y alineación con lotes de latencia de 3s (150 muestras).
+    - [ ] Lógica de WAKEUP y buffer inicial en `AlarmsEventsTask` / `SystemTask`.
+    - [ ] Validación: Probar detección de caídas y transmisión serie con `serial_recorder.py` / capturas.
 
-  * **Tiempo estimado:** 4 horas
-  * **Descripción:** Comprobar si la pulsera está puesta utilizando los algoritmos y features ya integrados internamente en la IMU.
-  * **Criterio de aceptación:** El sistema detecta exitosamente el cambio de estado (puesta / sacada) al hacer la prueba física.
-
-  - **Subtareas:**
-    - [ ] Fase de Análisis: Investigar y definir la estrategia técnica para realizar la detección.
-    - [ ] Fase de Arquitectura: Definir qué tareas estarán involucradas (MDE en `SystemTask`, interacción con procesamiento).
-    - [ ] Fase de Desarrollo: Implementar la solución en el código.
-- [ ] **Análisis de Métricas Extras (Actividad y Sueño)**
-
-  - **Descripción:** Estudiar la viabilidad y el mecanismo óptimo para calcular métricas avanzadas de usuario.
-  - **Subtareas:**
-    - [ ] Análisis de viabilidad: Sedentarismo.
-    - [ ] Análisis de viabilidad: Tiempo en movimiento.
-    - [ ] Análisis de viabilidad: Tiempo acostado.
-    - [ ] Análisis de viabilidad: Levantamiento durante la noche.
-    - [ ] Definición de arquitectura: Decidir qué se procesará en el Firmware y qué se delegará al Servidor/App.
+- [ ] **2. Procesamiento de "Movimiento Detectado" para control de apagado / hibernación**
+  * **Descripción:** Implementar en software un procesamiento de detección de movimiento mínimo sobre los datos del acelerómetro. Resolver el apagado accidental del dispositivo cuando el usuario realiza movimientos lentos o breves que los sensores virtuales de Bosch no capturan.
+  * **Criterio de aceptación:** El sistema debe ser capaz de apagarse (entrar en hibernación / deshabilitar FIFO non-wakeup) únicamente cuando no se detecte ningún movimiento durante un período de tiempo continuo, y mantenerse activo si existe al menos un movimiento mínimo del usuario.
+  * **Subtareas:**
+    - [ ] Algoritmo: Implementar cálculo de variación/actividad de aceleración entera (sin float) en `AlarmsEventsTask`.
+    - [ ] Calibración: Definir umbral de movimiento mínimo (`THRESHOLD_MOTION`) basado en el piso de ruido de los datos capturados.
+    - [ ] Integración MDE: Integrar el resultado con la máquina de estados de `SystemTask` para gobernar el temporizador/contador de desconexión y reposo.
+    - [ ] Validación: Probar en banco que movimientos leves/lentos reinicien el timeout y que la quietud prolongada apague la FIFO ordenadamente.
 
 ### Sprint 6 (HW Pulsera y Notificaciones)
 
@@ -130,11 +128,22 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 
 ## 3. Backlog (Próximos Sprints)
 
-### 8. Tener muestras de caídas con pulsera
+### 8. Tener muestras de caídas con pulsera [X] - CUBIERTO
 
 * **Tiempo estimado:** 3 horas
 * **Descripción:** Generar caídas verdaderas y eventos cotidianos capturando los buffers.
 * **Criterio de aceptación:** Dataset preliminar capturado mediante el script de Python.
+* **Estado:** Cubierto (122 capturas reales en `tools/capturas/`).
+
+### Detección de dispositivo puesto (Off-Wrist Detection) [Pendiente]
+
+* **Tiempo estimado:** 4 horas
+* **Descripción:** Comprobar si la pulsera está puesta utilizando los algoritmos y features ya integrados internamente en la IMU.
+* **Criterio de aceptación:** El sistema detecta exitosamente el cambio de estado (puesta / sacada) al hacer la prueba física.
+
+### Análisis de Métricas Extras (Actividad y Sueño) [Pendiente]
+
+* **Descripción:** Estudiar la viabilidad y el mecanismo óptimo para calcular métricas avanzadas de usuario (sedentarismo, tiempo en movimiento, etc.).
 
 ### 12. Detección de intención de re-emparejamiento
 
@@ -148,7 +157,7 @@ A continuación, se listan las tareas planificadas para el desarrollo del driver
 
 Estas tareas representan los grandes bloques de trabajo (Epics) que deberán ser refinados y desglosados en tareas más pequeñas y estimables a medida que el proyecto avance.
 
-### Épica 1: Interacción App Cuidador - Servidor
+### Épica 1: Interacción App Cuidador - Servidor [X] - RESUELTA
 
 * **Alcance:** App Móvil / Servidor.
 * **Objetivo:** Conectar la interfaz del cuidador con el backend.
@@ -164,7 +173,7 @@ Estas tareas representan los grandes bloques de trabajo (Epics) que deberán ser
   Configurar .gitignore.
   Revocar y rotar cualquier clave que ya haya sido pusheada por error en el pasado.
 
-### Épica 3: Validación del Pipeline de Inferencia
+### Épica 3: Validación del Pipeline de Inferencia [X] - RESUELTA
 
 * **Alcance:** Servidor / Machine Learning / Firmware.
 * **Objetivo:** Asegurar que los datos crudos emitidos por la pulsera en tiempo real mantengan la misma calidad, escala y forma que los datos teóricos usados para entrenar el modelo.
@@ -179,7 +188,7 @@ Estas tareas representan los grandes bloques de trabajo (Epics) que deberán ser
 * **Notas para futuro desglose:**
   Para evitar tareas infinitas, se deberá definir una cuota dura. Ej: "50 caídas simuladas por 3 usuarios distintos" y "100 eventos de Actividades de la Vida Diaria (ADL)".
 
-### Épica 5: Alineación Espacial del Acelerómetro (Servidor)
+### Épica 5: Alineación Espacial del Acelerómetro (Servidor) [X] - CUBIERTA
 
 * **Alcance:** Servidor / Procesamiento de señales.
 * **Objetivo:** Modificar la orientación de los datos del sensor físico para que sus ejes coincidan con el marco de referencia esperado por el modelo.
@@ -187,7 +196,7 @@ Estas tareas representan los grandes bloques de trabajo (Epics) que deberán ser
   Implementar matriz de rotación matemática.
   Aplicar TDD (Test Driven Development): crear tests unitarios con vectores de entrada/salida conocidos antes de integrarlo al pipeline.
 
-### Épica 6: Integración del Stack BLE
+### Épica 6: Integración del Stack BLE [EN DESARROLLO]
 
 * **Alcance:** Firmware / App.
 * **Objetivo:** Implementar la comunicación Bluetooth Low Energy completa entre la pulsera y el teléfono/gateway.

@@ -56,23 +56,20 @@ void EventRepository::clearEventCount() {
 // Singletons Específicos para Eventos
 // ============================================================================
 
-MotionRepository* MotionRepository::_instance = nullptr;
 MotionRepository::MotionRepository() : EventRepository(SENSOR_ID_MOTION_DET) {}
 MotionRepository* MotionRepository::getInstance() {
-    if (_instance == nullptr) { _instance = new MotionRepository(); }
-    return _instance;
+    static MotionRepository instance;
+    return &instance;
 }
 
-NoMotionRepository* NoMotionRepository::_instance = nullptr;
 NoMotionRepository::NoMotionRepository() : EventRepository(SENSOR_ID_STATIONARY_DET) {}
 NoMotionRepository* NoMotionRepository::getInstance() {
-    if (_instance == nullptr) { _instance = new NoMotionRepository(); }
-    return _instance;
+    static NoMotionRepository instance;
+    return &instance;
 }
 
-StepCounterRepository* StepCounterRepository::_instance = nullptr;
 StepCounterRepository::StepCounterRepository() : EventRepository(53) {} // SENSOR_ID_STEP_COUNTER_WU
 StepCounterRepository* StepCounterRepository::getInstance() {
-    if (_instance == nullptr) { _instance = new StepCounterRepository(); }
-    return _instance;
+    static StepCounterRepository instance;
+    return &instance;
 }

@@ -6,6 +6,9 @@
 #include "repositories/imu_repository.h"
 #include "repositories/pressure_repository.h"
 #include "tasks/alarms_events_task.h"
+#include "app/config.h"
+#include "drivers/comm_driver.h"
+#include "drivers/led_driver.h"
 
 // Struct de métricas como template para el futuro
 struct MetricsData {
@@ -18,25 +21,34 @@ class CommLinkTask {
     friend class AlarmsEventsTask;
     friend class NotifyTelemetryTask;
 private:
-    CommLinkTask() {}
+    CommLinkTask() : _thread(osPriorityNormal, STACK_SIZE_COMM_LINK_TASK) {}
     ~CommLinkTask() {}
 
     CommLinkTask(const CommLinkTask&) = delete;
     CommLinkTask& operator=(const CommLinkTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _comm_link_task_queue;
+    MessageQueue<AppMessage, TASK_QUEUE_SIZE> _comm_link_task_queue;
 
-    // Buffers locales para resguardo antes de enviar
-    DataXYZ _imu_tx_buffer[IMU_FIFO_SIZE];
-    float _pressure_tx_buffer[PRESSURE_FIFO_SIZE];
     MetricsData _metrics_buffer;
+    CommPacket _rx_packet;
+    uint8_t _retry_counts[16] = {0};
+
+    CommDriver* _comm = nullptr;
+    uint8_t _auth_attempts = 0;
+    uint32_t _auth_timer_start_ms = 0;
+    bool _was_connected = true;
+
+    // Métodos privados de procesamiento de recepción (RX)
+    void handleRxPacket(CommDriver* comm);
+    void handleAuthPacket(const uint8_t* payload, uint16_t length, CommDriver* comm);
+    void handleTxCommand(const AppMessage& msg, CommDriver* comm);
+    void handleAck(MsgType ackedMsg, uint8_t status);
+    void dispatchRetry(MsgType type);
 
     void run();
 
 protected:
-    bool sendMsg(AppMessage* msg);
-
     template <typename TargetTask>
     void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_COMM_LINK, MsgPriority priority = PRIORITY_NORMAL) {
         AppMessage msg;
@@ -46,11 +58,11 @@ protected:
         msg.flags = 0;
         msg.payload_ptr = nullptr;
         msg.payload_len = 0;
-        msg.timestamp = (uint32_t)rtos::Kernel::Clock::now().time_since_epoch().count();
         TargetTask::getInstance().sendMsg(&msg);
     }
 
 public:
+    bool sendMsg(AppMessage* msg);      
     // Comandos y eventos exclusivos de esta tarea (que mapean a lo que enviaremos)
     enum EventId : uint8_t {
         CMD_TX_IMU_BUFFER      = 0x01,
@@ -62,10 +74,13 @@ public:
         CMD_TX_FALL_SENSORS    = 0x07,
         CMD_TX_WARNING         = 0x08,
         CMD_TX_PANIC_BTN_PRESS = 0x09,
-        EVT_RX_PACKET          = 0x0A,
-        CMD_TX_BATTERY_DATA    = 0x0B,
-        CMD_TX_NOTIF_BTN_PRESS = 0x0C
+        CMD_TX_BATTERY_DATA    = 0x0A,
+        CMD_TX_NOTIF_BTN_PRESS = 0x0C,
+        EVT_RX_PACKET          = 0x20
     };
+
+    bool isAuthenticated() const { return _comm != nullptr ? _comm->isAuthenticated() : false; }
+    bool isAuth() const { return isAuthenticated(); }
 
     static CommLinkTask& getInstance() {
         static CommLinkTask instance;

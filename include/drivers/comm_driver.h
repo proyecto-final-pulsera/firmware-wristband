@@ -19,6 +19,7 @@ enum MsgType : uint8_t {
     MSG_WARNING         = 0x08, // Advertencias menores
     MSG_PANIC_BTN_PRESS = 0x09, // Boton de panico presionado
     MSG_BATTERY_DATA    = 0x0A, // Datos de nivel de bateria
+    MSG_AUTH            = 0x0B, // Handshake de autenticacion con UID
     MSG_NOTIF_BTN_PRESS = 0x0C  // Boton de notificacion presionado
 };
 
@@ -37,6 +38,7 @@ struct CommPacket {
 
 class CommDriver {
 protected:
+    bool _isAuthenticated = false;
     // Puntero a la función inyectada por la Capa de Aplicación (RTOS)
     void (*_rxNotificationCallback)() = nullptr;
 
@@ -97,6 +99,21 @@ public:
     
     // Envía un payload construyendo la trama en formato binario
     virtual bool sendPayload(MsgType type, const uint8_t* payload, uint16_t len) = 0;
+
+    // -------------------------------------------------------------------------
+    // Métodos Genéricos de Control y Ciclo de Vida
+    // -------------------------------------------------------------------------
+    virtual bool isTxInProgress() const { return false; }
+    virtual void processEvents() {}
+    virtual bool isConnected() { return true; }
+    virtual void disconnect() {}
+
+    // -------------------------------------------------------------------------
+    // Estado de Autenticación
+    // -------------------------------------------------------------------------
+    virtual bool isAuthenticated() const { return _isAuthenticated; }
+    virtual bool isAuth() const { return isAuthenticated(); }
+    virtual void setAuthenticated(bool auth) { _isAuthenticated = auth; }
 
     // -------------------------------------------------------------------------
     // Inyección de Dependencias (Inter-Task)

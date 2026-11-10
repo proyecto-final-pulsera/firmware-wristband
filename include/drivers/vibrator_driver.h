@@ -74,10 +74,6 @@ public:
     void setMinDuty(float min_duty);
 
 private:
-    static VibratorDriver* createInstance();
-    /// Instancia única del Singleton.
-    static VibratorDriver* _instance;
-
     /**
      * @brief Constructor privado.
      */

@@ -1,17 +1,9 @@
 #include "drivers/bhi260_driver.h"
 #include "Nicla_System.h"
 
-BHI260Driver* BHI260Driver::_instance = nullptr;
-
 BHI260Driver* BHI260Driver::getInstance() {
-    if (_instance == nullptr) {
-        _instance = createInstance();
-    }
-    return _instance;
-}
-
-BHI260Driver* BHI260Driver::createInstance() {
-    return new BHI260Driver();
+    static BHI260Driver instance;
+    return &instance;
 }
 
 BHI260Driver::BHI260Driver() {

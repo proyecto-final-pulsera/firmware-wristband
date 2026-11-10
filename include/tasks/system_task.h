@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "tasks/app_messages.h"
 #include "utils/message_queue.h"
+#include "app/config.h"
 
 #define KEEP_ALIVE_PERIOD_SEC   60
 #define METRICS_PERIOD_SEC      300 // 5 minutos
@@ -11,8 +12,7 @@ class SystemTask {
     // Permitimos que el SystemTask orqueste y envie mensajes a esta tarea
 
 private:
-    // Constructor privado (Patron Singleton)
-    SystemTask() {}
+    SystemTask() : _thread(osPriorityNormal, STACK_SIZE_SYSTEM_TASK) {}
     ~SystemTask() {}
 
     // Evitar copias
@@ -20,7 +20,7 @@ private:
     SystemTask& operator=(const SystemTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, 16> _system_task_queue;
+    MessageQueue<AppMessage, TASK_QUEUE_SIZE> _system_task_queue;
 
     // --- Timers Cíclicos (ISRs) ---
     mbed::Ticker _keepAliveTicker;
@@ -46,6 +46,8 @@ private:
     uint8_t _bhi_disconnect_counter = 0;
     bool _flag_bhi_irq = false;
     bool _flag_bhi_updated = false;
+    bool _flag_process_full_buffer = false;
+    uint32_t _delayed_tx_count = 0;
 
     bool _panic_mde_active = false;
     bool _notif_mde_active = false;
@@ -55,7 +57,7 @@ private:
     void updateButtonsMde();
 
     template <typename TargetTask>
-    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_SYSTEM, MsgPriority priority = PRIORITY_NORMAL, uint32_t flags = 0, void* payload_ptr = nullptr, uint16_t payload_len = 0) {
+    void notifyTask(uint8_t event_id, TaskId emisor_id = TASK_SYSTEM, MsgPriority priority = PRIORITY_NORMAL, uint8_t flags = 0, void* payload_ptr = nullptr, uint16_t payload_len = 0) {
         AppMessage msg;
         // Se pueden inicializar el resto en 0 o dejarlos como están si no se usan
         msg.event_id = event_id;
@@ -64,7 +66,6 @@ private:
         msg.flags = flags;
         msg.payload_ptr = payload_ptr;
         msg.payload_len = payload_len;
-        msg.timestamp = (uint32_t)rtos::Kernel::Clock::now().time_since_epoch().count(); // Buena practica
         TargetTask::getInstance().sendMsg(&msg);
     }
 
@@ -83,7 +84,10 @@ public:
         CMD_EVALUATE_NOTIF_BUTTON,
         BHI_UPDATED,
         EVT_BHI_INTERRUPT,
+        EVT_TX_DELAYED,
     };
+
+    uint32_t getDelayedTxCount() const { return _delayed_tx_count; }
 
     static SystemTask& getInstance() {
         static SystemTask instance;

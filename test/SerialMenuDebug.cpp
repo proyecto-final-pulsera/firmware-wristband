@@ -1,5 +1,6 @@
 #include "SerialMenuDebug.h"
 #include "drivers/vibrator_driver.h"
+#include "utils/debug.h"
 
 SerialMenuDebug::SerialMenuDebug() {
 
@@ -19,7 +20,7 @@ void SerialMenuDebug::logEvent(const String& eventName) {
         _events[_eventCount].count = 1;
         _eventCount++;
     } else {
-        Serial.println("[DEBUG] SerialMenuDebug: Buffer de eventos lleno!");
+        DEBUG_PRINTLN("[DEBUG] SerialMenuDebug: Buffer de eventos lleno!");
     }
 }
 
@@ -33,25 +34,25 @@ void SerialMenuDebug::processSerial() {
             printEvents();
         } else if (cmd == "VIBRATOR_ENA") {
             VibratorDriver::getInstance()->enable();
-            Serial.println("[DEBUG] Vibrador habilitado.");
+            DEBUG_PRINTLN("[DEBUG] Vibrador habilitado.");
         } else if (cmd == "VIBRATOR_DES") {
             VibratorDriver::getInstance()->disable();
-            Serial.println("[DEBUG] Vibrador deshabilitado.");
+            DEBUG_PRINTLN("[DEBUG] Vibrador deshabilitado.");
         } else if (cmd == "VIBRATOR_BREAK") {
             VibratorDriver::getInstance()->brake();
-            Serial.println("[DEBUG] Vibrador deshabilitado.");
+            DEBUG_PRINTLN("[DEBUG] Vibrador deshabilitado.");
         
         } else if (cmd.startsWith("VIBRATOR_DUTY_")) {
             String valueStr = cmd.substring(14);
             int value = valueStr.toInt();
             VibratorDriver::getInstance()->setStrength((uint8_t)value);
-            Serial.print("[DEBUG] VEVibrador strength seteado a: ");
-            Serial.println(value);
+            DEBUG_PRINT("[DEBUG] VEVibrador strength seteado a: ");
+            DEBUG_PRINTLN(value);
         } else {
-            Serial.print("[DEBUG] Comando desconocido: '");
-            Serial.print(cmd);
-            Serial.println("'");
-            Serial.println("[DEBUG] Escriba EVENTOS para ver las metricas.");
+            DEBUG_PRINT("[DEBUG] Comando desconocido: '");
+            DEBUG_PRINT(cmd);
+            DEBUG_PRINTLN("'");
+            DEBUG_PRINTLN("[DEBUG] Escriba EVENTOS para ver las metricas.");
         }
 
         // Vaciamos el buffer de recepción (RX) descartando cualquier caracter sobrante (basura o múltiples enters)
@@ -62,18 +63,18 @@ void SerialMenuDebug::processSerial() {
 }
 
 void SerialMenuDebug::printEvents() {
-    Serial.println("\n=== METRICAS DE EVENTOS ===");
+    DEBUG_PRINTLN("\n=== METRICAS DE EVENTOS ===");
     if (_eventCount == 0) {
-        Serial.println("No se registraron eventos aun.");
+        DEBUG_PRINTLN("No se registraron eventos aun.");
     } else {
         for (int i = 0; i < _eventCount; i++) {
-            Serial.print("- ");
-            Serial.print(_events[i].name);
-            Serial.print(": ");
-            Serial.println(_events[i].count);
+            DEBUG_PRINT("- ");
+            DEBUG_PRINT(_events[i].name);
+            DEBUG_PRINT(": ");
+            DEBUG_PRINTLN(_events[i].count);
         }
     }
-    Serial.println("===========================\n");
+    DEBUG_PRINTLN("===========================\n");
 }
 
 void SerialMenuDebug::clear() {

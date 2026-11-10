@@ -12,10 +12,8 @@ private:
     rtos::Mail<T, SIZE> _mail;
 
     // --- Magia de C++ (Sobrecarga de funciones) ---
-    // Si T es exactamente 'AppMessage', el compilador usa esta funcion y estampa el tiempo
     void apply_helpers(AppMessage* msg) {
-        // Asignamos el timestamp actual automaticamente (Mbed OS 6 safe)
-        msg->timestamp = rtos::Kernel::Clock::now().time_since_epoch().count();
+        // No operation (timestamp removido para optimizar memoria RAM del sobre)
     }
     
     // Si T es cualquier otro tipo (ej. int, float), el compilador usa esta funcion que no hace nada
@@ -44,7 +42,7 @@ public:
         // Copiamos los datos del usuario al bloque de memoria del mailbox
         *new_msg = *msg;
         
-        // Inyectamos el timestamp (solo si es un AppMessage)
+        // Inyectamos helpers
         apply_helpers(new_msg);
 
         // Encolamos en el mailbox

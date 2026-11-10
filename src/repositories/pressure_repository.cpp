@@ -1,17 +1,11 @@
 #include "repositories/pressure_repository.h"
 #include "sensors/DataParser.h"
-
-PressureRepository* PressureRepository::_instance = nullptr;
-
-PressureRepository* PressureRepository::createInstance() {
-    if (_instance == nullptr) {
-        _instance = new PressureRepository();
-    }
-    return _instance;
-}
+#include <algorithm>
+#include <cstring>
 
 PressureRepository* PressureRepository::getInstance() {
-    return createInstance();
+    static PressureRepository instance;
+    return &instance;
 }
 
 PressureRepository::PressureRepository() 
@@ -41,8 +35,20 @@ String PressureRepository::toString() {
     return String("Pressure: ") + String(_lastData, 2) + " hPa";
 }
 
+void PressureRepository::lock() {
+    _mutex.lock();
+}
+
+void PressureRepository::unlock() {
+    _mutex.unlock();
+}
+
 void PressureRepository::fifoFlush() {
     rtos::ScopedMutexLock lock(_mutex);
+    fifoFlushUnprotected();
+}
+
+void PressureRepository::fifoFlushUnprotected() {
     _head = 0;
     _tail = 0;
     _count = 0;
@@ -52,6 +58,7 @@ void PressureRepository::fifoFlush() {
 }
 
 bool PressureRepository::push(const float& data) {
+    rtos::ScopedMutexLock lock(_mutex);
     bool overwritten = false;
     _totalPushed++;
 
@@ -70,6 +77,11 @@ bool PressureRepository::push(const float& data) {
 }
 
 bool PressureRepository::pop(float& data) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return popUnprotected(data);
+}
+
+bool PressureRepository::popUnprotected(float& data) {
     if (_count == 0) {
         return false;
     }
@@ -82,22 +94,31 @@ bool PressureRepository::pop(float& data) {
 }
 
 uint16_t PressureRepository::getAvailableCount() const {
+    rtos::ScopedMutexLock lock(_mutex);
+    return _count;
+}
+
+uint16_t PressureRepository::getAvailableCountUnprotected() const {
     return _count;
 }
 
 bool PressureRepository::isFull() const {
+    rtos::ScopedMutexLock lock(_mutex);
     return _count == PRESSURE_FIFO_SIZE;
 }
 
 bool PressureRepository::hasOverflowed() const {
+    rtos::ScopedMutexLock lock(_mutex);
     return _overflow;
 }
 
 void PressureRepository::clearOverflow() {
+    rtos::ScopedMutexLock lock(_mutex);
     _overflow = false;
 }
 
 uint16_t PressureRepository::rewind(uint16_t steps) {
+    rtos::ScopedMutexLock lock(_mutex);
     uint32_t totalValid = (_totalPushed < PRESSURE_FIFO_SIZE) ? _totalPushed : PRESSURE_FIFO_SIZE;
     uint16_t maxRewind = totalValid - _count;
     
@@ -128,11 +149,40 @@ uint16_t PressureRepository::getFifoValues(float* buffer, uint16_t maxLen) {
     uint16_t extracted = 0;
     
     while (_count > 0 && extracted < maxLen) {
-        pop(buffer[extracted]);
+        popUnprotected(buffer[extracted]);
         extracted++;
     }
     
     return extracted;
+}
+
+const float* PressureRepository::getLinearBuffer(uint16_t* outCount) {
+    rtos::ScopedMutexLock lock(_mutex);
+    return getLinearBufferUnprotected(outCount);
+}
+
+const float* PressureRepository::getLinearBufferUnprotected(uint16_t* outCount) {
+    if (_count == 0) {
+        if (outCount) *outCount = 0;
+        return nullptr;
+    }
+    if (_tail != 0) {
+        if (_count == PRESSURE_FIFO_SIZE) {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[PRESSURE_FIFO_SIZE]);
+            _tail = 0;
+            _head = 0;
+        } else if (_head > _tail) {
+            std::memmove(&_fifo[0], &_fifo[_tail], _count * sizeof(float));
+            _tail = 0;
+            _head = _count;
+        } else {
+            std::rotate(&_fifo[0], &_fifo[_tail], &_fifo[PRESSURE_FIFO_SIZE]);
+            _tail = 0;
+            _head = _count % PRESSURE_FIFO_SIZE;
+        }
+    }
+    if (outCount) *outCount = _count;
+    return _fifo;
 }
 
 uint16_t PressureRepository::copyFifoValues(float* buffer, uint16_t maxLen) {

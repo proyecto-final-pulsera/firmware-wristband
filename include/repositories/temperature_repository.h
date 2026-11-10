@@ -15,8 +15,6 @@ public:
 
 private:
     TemperatureRepository();
-    static TemperatureRepository* _instance;
-    static TemperatureRepository* createInstance();
 
 public:
     // --- Métodos virtuales puros reescritos de SensorClass ---

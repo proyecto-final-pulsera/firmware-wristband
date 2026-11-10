@@ -64,7 +64,6 @@ public:
     static MotionRepository* getInstance();
 private:
     MotionRepository();
-    static MotionRepository* _instance;
 };
 
 class NoMotionRepository : public EventRepository {
@@ -72,7 +71,6 @@ public:
     static NoMotionRepository* getInstance();
 private:
     NoMotionRepository();
-    static NoMotionRepository* _instance;
 };
 
 class StepCounterRepository : public EventRepository {
@@ -80,5 +78,4 @@ public:
     static StepCounterRepository* getInstance();
 private:
     StepCounterRepository();
-    static StepCounterRepository* _instance;
 };

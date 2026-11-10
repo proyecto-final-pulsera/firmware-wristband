@@ -4,16 +4,14 @@
 
 class SerialCommDriver : public CommDriver {
 private:
-    static SerialCommDriver* _instance;
-    static SerialCommDriver* createInstance();
-    
     SerialCommDriver() = default;
 
     static void onSerialRx();
 
     // Buffers internos para ensamblar la trama
-    uint8_t _rxBuffer[256];
-    uint16_t _rxIndex = 0;
+    // Comentados temporalmente para optimizar memoria RAM estatica
+    // uint8_t _rxBuffer[256];
+    // uint16_t _rxIndex = 0;
 
 public:
     static SerialCommDriver* getInstance();
@@ -29,4 +27,19 @@ public:
     void attachRxInterrupt() override;
     bool processRxData(CommPacket* out_msg) override;
     bool sendPayload(MsgType type, const uint8_t* payload, uint16_t len) override;
+
+    // -------------------------------------------------------------------------
+    // Métodos Genéricos de Control y Ciclo de Vida
+    // -------------------------------------------------------------------------
+    bool isTxInProgress() const override { return false; }
+    void processEvents() override;
+    bool isConnected() override { return true; }
+    void disconnect() override {}
+
+    // -------------------------------------------------------------------------
+    // Estado de Autenticación (Mockup: siempre autenticado)
+    // -------------------------------------------------------------------------
+    bool isAuthenticated() const override { return true; }
+    bool isAuth() const override { return true; }
+    void setAuthenticated(bool auth) override { (void)auth; }
 };
