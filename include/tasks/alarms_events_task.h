@@ -53,6 +53,7 @@ protected:
     enum EventId : uint8_t {
         CMD_PROCESS_IMU,
         CMD_PROCESS_IMU_WAKEUP,
+        CMD_PROCESS_IMU_PROBE,
         CMD_STOP_PROCESS,
         EVT_PANIC_BUTTON,
         UPDATE_BUFFER_BHI,
@@ -68,16 +69,18 @@ protected:
 
     #define FLAG_FREE_FALL          0x01
     #define FLAG_IMPACT             0x02
-    #define FLAG_FALL_DETECTED      (FLAG_FREE_FALL | FLAG_IMPACT)
     #define FLAG_NO_MOVEMENT_LOW    0x04
     #define FLAG_NO_MOVEMENT_HIGHT  0x08
     #define FLAG_NO_MOVEMENT_HIGH   FLAG_NO_MOVEMENT_HIGHT
+    #define FLAG_FALL_DETECTED      0x10
+    #define FLAG_IS_WAKEUP          0x20
 
     // Funcion auxiliar para evaluar la ventana sobre el vector de magnitudes provisto
     uint8_t evaluateWindow(const uint16_t* magnitudes, uint16_t len);
     
     // Funcion de procesamiento (retorna true si hubo caida)
     bool processImuWindow(bool process_preFall);
+    bool processImuWindowProbe();
 
 public:
     static AlarmsEventsTask& getInstance() {

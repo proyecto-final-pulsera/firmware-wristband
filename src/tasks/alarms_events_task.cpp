@@ -36,23 +36,21 @@ void AlarmsEventsTask::run() {
 
             switch (msg.event_id) {
                 case CMD_PROCESS_IMU: {
-                    bool fall = processImuWindow(false);
+                    processImuWindow(false);
                     DEBUG_PRINT("[AlarmsEventsTask] Tiempo process (us): "); DEBUG_PRINTLN(micros() - t_start);
-                    if (fall) {
-                        DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO ***");
-                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
-                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, 0);
-                    }
+                    notifyTask<SystemTask>(SystemTask::EVT_IMU_PROCESSED, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, _lastEvaluatedFlags);
                     break;
                 }
                 case CMD_PROCESS_IMU_WAKEUP: {
-                    bool fall = processImuWindow(true);
+                    processImuWindow(true);
                     DEBUG_PRINT("[AlarmsEventsTask] Tiempo process Wakeup (us): "); DEBUG_PRINTLN(micros() - t_start);
-                    if (fall) {
-                        DEBUG_PRINTLN("[AlarmsEventsTask] *** ALARMA: CAIDA DETECTADA CON EXITO (WAKEUP) ***");
-                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
-                        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, PRE_FALL_PROCESSED_FLAG);
-                    }
+                    notifyTask<SystemTask>(SystemTask::EVT_IMU_PROCESSED, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, _lastEvaluatedFlags | FLAG_IS_WAKEUP);
+                    break;
+                }
+                case CMD_PROCESS_IMU_PROBE: {
+                    processImuWindowProbe();
+                    DEBUG_PRINT("[AlarmsEventsTask] Tiempo process Probe (us): "); DEBUG_PRINTLN(micros() - t_start);
+                    notifyTask<SystemTask>(SystemTask::EVT_IMU_PROCESSED, TASK_ALARMS_EVENTS, PRIORITY_NORMAL, _lastEvaluatedFlags);
                     break;
                 }
                 case CMD_STOP_PROCESS:
@@ -115,7 +113,8 @@ uint8_t AlarmsEventsTask::evaluateWindow(const uint16_t* magnitudes, uint16_t le
         }
         
         // Retorno prioritario si ya se detectó la secuencia completa de caída
-        if ((flags & FLAG_FALL_DETECTED) == FLAG_FALL_DETECTED) {
+        if ((flags & (FLAG_FREE_FALL | FLAG_IMPACT)) == (FLAG_FREE_FALL | FLAG_IMPACT)) {
+            flags |= FLAG_FALL_DETECTED;
             return flags;
         }
     }
@@ -128,10 +127,15 @@ uint8_t AlarmsEventsTask::evaluateWindow(const uint16_t* magnitudes, uint16_t le
         flags |= FLAG_NO_MOVEMENT_LOW;
     }
 
+    if ((flags & (FLAG_FREE_FALL | FLAG_IMPACT)) == (FLAG_FREE_FALL | FLAG_IMPACT)) {
+        flags |= FLAG_FALL_DETECTED;
+    }
+
     return flags;
 }
 
 bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
+    _lastEvaluatedFlags = 0;
     ImuRepository* imu = ImuRepository::getInstance();
     
     if (imu->getAvailableCount() < IMU_FIFO_SIZE) {
@@ -146,7 +150,7 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
         fall_flags |= evaluateWindow(_magnitudes, count);
 
         // Etapa 2: Ventana intermedia (toma la mitad de muestras de la ventana inicial y mitad de la central)
-        if (fall_flags != FLAG_FALL_DETECTED) {
+        if (!(fall_flags & FLAG_FALL_DETECTED)) {
             uint16_t count = imu->copyFifoMagnitudes(_magnitudes, IMPACT_WINDOW_SIZE, INTERMEDIATE_IMPACT_WINDOW_INDEX);
             if (count != 0) {
                 fall_flags |= evaluateWindow(_magnitudes, count);
@@ -155,7 +159,7 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
     }
 
     // Etapa 3 (o única si no es wakeup): Ventana central
-    if ((fall_flags & FLAG_FALL_DETECTED) != FLAG_FALL_DETECTED) {
+    if (!(fall_flags & FLAG_FALL_DETECTED)) {
         uint16_t count = imu->copyFifoMagnitudes(_magnitudes, IMPACT_WINDOW_SIZE, START_IMPACT_WINDOW_INDEX);
         fall_flags |= evaluateWindow(_magnitudes, count);
     }
@@ -171,10 +175,36 @@ bool AlarmsEventsTask::processImuWindow(bool process_preFall) {
     } else {
         if (fall_flags & FLAG_FREE_FALL)         DEBUG_PRINT("[CAIDA_LIBRE] ");
         if (fall_flags & FLAG_IMPACT)            DEBUG_PRINT("[IMPACTO] ");
+        if (fall_flags & FLAG_FALL_DETECTED)     DEBUG_PRINT("[CAIDA_DETECTADA] ");
         if (fall_flags & FLAG_NO_MOVEMENT_LOW)   DEBUG_PRINT("[REPOSO_LOW] ");
         if (fall_flags & FLAG_NO_MOVEMENT_HIGHT) DEBUG_PRINT("[REPOSO_HIGHT] ");
     }
     DEBUG_PRINTLN();
 
-    return ((fall_flags & FLAG_FALL_DETECTED) == FLAG_FALL_DETECTED);
+    return ((fall_flags & FLAG_FALL_DETECTED) != 0);
+}
+
+bool AlarmsEventsTask::processImuWindowProbe() {
+    _lastEvaluatedFlags = 0;
+    ImuRepository* imu = ImuRepository::getInstance();
+    uint16_t count = imu->getAvailableCount();
+    
+    if (count == 0) {
+        return false;
+    }
+
+    // Limitamos a IMPACT_WINDOW_SIZE si hay demasiados datos (aunque no deberia pasar en modo probe)
+    uint16_t samplesToProcess = (count > IMPACT_WINDOW_SIZE) ? IMPACT_WINDOW_SIZE : count;
+    
+    // Tomamos las muestras mas recientes (tail)
+    uint16_t copied = imu->copyFifoMagnitudes(_magnitudes, samplesToProcess, 0);
+    uint8_t fall_flags = evaluateWindow(_magnitudes, copied);
+    
+    _lastEvaluatedFlags = fall_flags;
+    
+    DEBUG_PRINT("[AlarmsEventsTask] Probe Flags (0x");
+    DEBUG_PRINT(fall_flags, HEX);
+    DEBUG_PRINTLN(")");
+
+    return true;
 }
