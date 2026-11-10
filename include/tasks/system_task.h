@@ -20,7 +20,7 @@ private:
     SystemTask& operator=(const SystemTask&) = delete;
 
     rtos::Thread _thread;
-    MessageQueue<AppMessage, TASK_QUEUE_SIZE> _system_task_queue;
+    MessageQueue<AppMessage, SYSTEM_TASK_QUEUE_SIZE> _system_task_queue;
 
     // --- Timers Cíclicos (ISRs) ---
     mbed::Ticker _keepAliveTicker;
@@ -34,18 +34,30 @@ private:
     
     // --- Variables para la MDE del BHI260 ---
     enum BhiMdeState {
-        BHI_MDE_IDLE,
-        BHI_MDE_WAIT_FIRST_UPDATE,
-        BHI_MDE_WAIT_SECOND_UPDATE,
-        BHI_MDE_MONITORING_FALL,
-        BHI_MDE_WAIT_MONITOR_UPDATE,
-        BHI_MDE_DISCONNECTING_WAIT_IRQ,
-        BHI_MDE_DISCONNECTING_WAIT_UPDATE
+        // --- Estado de Reposo Base ---
+        STATE_IDLE_SLEEP,
+
+        // --- 1. Inicialización Post-Dormida ---
+        WAKEUP_WAIT_FIRST_FIFO_UPDATE,
+        WAKEUP_WAIT_SECOND_FIFO_UPDATE,
+        WAKEUP_WAIT_PROCESS_RESULT,
+
+        // --- 2. Estados de Régimen (Monitoreo Continuo) ---
+        REGIME_WAIT_FIFO_IRQ,
+        REGIME_WAIT_FIFO_UPDATE,
+        REGIME_WAIT_PROCESS_RESULT,
+
+        // --- 3. Estados para Poner a Dormir (Verificación de Inmovilidad) ---
+        SLEEP_WAIT_VERIFICATION_IRQ,
+        SLEEP_WAIT_FIFO_UPDATE,
+        SLEEP_WAIT_PROCESS_RESULT
     };
-    BhiMdeState _bhi_mde_state = BHI_MDE_IDLE;
+    BhiMdeState _bhi_mde_state = STATE_IDLE_SLEEP;
     uint8_t _bhi_disconnect_counter = 0;
     bool _flag_bhi_irq = false;
     bool _flag_bhi_updated = false;
+    bool _flag_imu_processed = false;
+    uint8_t _last_imu_flags = 0;
     bool _flag_process_full_buffer = false;
     uint32_t _delayed_tx_count = 0;
 
@@ -85,6 +97,7 @@ public:
         BHI_UPDATED,
         EVT_BHI_INTERRUPT,
         EVT_TX_DELAYED,
+        EVT_IMU_PROCESSED,
     };
 
     uint32_t getDelayedTxCount() const { return _delayed_tx_count; }

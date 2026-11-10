@@ -1,8 +1,5 @@
 #pragma once
 
-// Activar para habilitar los mensajes por Serial (Debug)
-#define DEBUG
-
 // Descomentar para utilizar comunicación Serial en lugar de BLE
 #define USE_SERIAL_COMM
 
@@ -49,18 +46,18 @@
 #define SLIDING_WINDOW_SIZE (1 << SLIDING_WINDOW_SHIFT) // 2^3 = 8
 
 // Valor umbral maximo a partir del cual se consigera que hubo caida libre.
-#define THRESHOLD_FREE_FALL  2300// 2300 // 2000 //1500  // Valor provisorio
+#define THRESHOLD_FREE_FALL  2600// 2300 // 2000 //1500  // Valor provisorio
 
 // Valor umbral minimo a partir del cual se considera que hubo un impacto.
 #define THRESHOLD_IMPACT 8000// 6500 // 7000     // Valor provisorio
 
 // --- Umbrales para Detección de Reposo e Inmovilidad (MAD sobre magnitudes) ---
-#define THRESHOLD_NO_MOVEMENT_LOW   100.0f   // LSB de MAD: persona quieta (sueño / reposo relativo)
+#define THRESHOLD_NO_MOVEMENT_LOW   80.0f   // LSB de MAD: persona quieta (sueño / reposo relativo)
 #define THRESHOLD_NO_MOVEMENT_HIGH  3.0f   // LSB de MAD: reposo estricto (mesa / dispositivo quitado)
 #define ALPHA_FILTER_NO_MOVEMENT    0.1f    // Factor de suavizado para media y MAD
 
 // numero de veces que se procesa el buffer recibido de IMU luego de recibir un evento de "No caida".
-#define NUM_PROCESS_POST_NOMOTION 10
+#define NUM_PROCESS_POST_NOMOTION 20
 
 // =============================================================================
 // --- Configuración de Autenticación BLE (Zero Flash Writes) ---
@@ -77,6 +74,10 @@
 // =============================================================================
 #ifndef TASK_QUEUE_SIZE
 #define TASK_QUEUE_SIZE 6 // 6 mensajes por cola (ahorro de RAM estática y margen holgado)
+#endif
+
+#ifndef SYSTEM_TASK_QUEUE_SIZE
+#define SYSTEM_TASK_QUEUE_SIZE (TASK_QUEUE_SIZE * 2) // 12 mensajes para SystemTask (orquestador)
 #endif
 
 // =============================================================================

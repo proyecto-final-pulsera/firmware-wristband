@@ -84,6 +84,10 @@ void SystemTask::run() {
                 case BHI_UPDATED:
                     _flag_bhi_updated = true;
                     break;
+                case EVT_IMU_PROCESSED:
+                    _flag_imu_processed = true;
+                    _last_imu_flags = msg.flags;
+                    break;
                 case EVT_TX_DELAYED:
                     _flag_process_full_buffer = true;
                     _delayed_tx_count++;
@@ -93,7 +97,7 @@ void SystemTask::run() {
         }
 
         // --- Evaluar Maquina de Estado del BHI ---
-        if (_flag_bhi_irq || _flag_bhi_updated) {
+        if (_flag_bhi_irq || _flag_bhi_updated || _flag_imu_processed) {
             updateBhiMde();
         }
 
@@ -103,16 +107,31 @@ void SystemTask::run() {
 }
 
 void SystemTask::updateBhiMde() {
+    // --- Evaluacion Universal de Caida Reportada por AlarmsEventsTask ---
+    if (_flag_imu_processed && (_last_imu_flags & FLAG_FALL_DETECTED)) {
+        DEBUG_PRINTLN("[SystemTask] *** ALARMA: CAIDA DETECTADA (Notificando a CommLink) ***");
+        uint8_t alarm_flags = (_last_imu_flags & FLAG_IS_WAKEUP) ? PRE_FALL_PROCESSED_FLAG : 0;
+        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+        notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, alarm_flags);
+        _last_imu_flags &= ~FLAG_FALL_DETECTED;
+    }
+
     switch (_bhi_mde_state) {
-        case BHI_MDE_IDLE:
+        // ====================================================================
+        // ESTADO DE REPOSO BASE
+        // ====================================================================
+        case STATE_IDLE_SLEEP:
             if (_flag_bhi_irq) {
-                DEBUG_PRINTLN("[BHI_MDE] IRQ recibida. IDLE -> WAIT_FIRST_UPDATE");
+                DEBUG_PRINTLN("[BHI_MDE] IRQ recibida. IDLE_SLEEP -> WAKEUP_WAIT_FIRST_FIFO_UPDATE");
                 notifyTask<AlarmsEventsTask>(AlarmsEventsTask::UPDATE_BUFFER_BHI);
-                _bhi_mde_state = BHI_MDE_WAIT_FIRST_UPDATE;
+                _bhi_mde_state = WAKEUP_WAIT_FIRST_FIFO_UPDATE;
             }
             break;
 
-        case BHI_MDE_WAIT_FIRST_UPDATE:
+        // ====================================================================
+        // 1. ESCENARIO DE INICIALIZACION POST-DORMIDA (WAKEUP)
+        // ====================================================================
+        case WAKEUP_WAIT_FIRST_FIFO_UPDATE:
             if (_flag_bhi_updated) {
                 if (MotionRepository::getInstance()->hasEventOccurred()) {
                     DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado! Activating sensors...");
@@ -129,40 +148,50 @@ void SystemTask::updateBhiMde() {
                     // Enviar update de nuevo inmediatamente
                     notifyTask<AlarmsEventsTask>(AlarmsEventsTask::UPDATE_BUFFER_BHI);
                     
-                    _bhi_mde_state = BHI_MDE_WAIT_SECOND_UPDATE;
+                    _bhi_mde_state = WAKEUP_WAIT_SECOND_FIFO_UPDATE;
                 } else {
-                    _bhi_mde_state = BHI_MDE_IDLE;
+                    _bhi_mde_state = STATE_IDLE_SLEEP;
                 }
             }
             break;
 
-        case BHI_MDE_WAIT_SECOND_UPDATE:
+        case WAKEUP_WAIT_SECOND_FIFO_UPDATE:
             if (_flag_bhi_updated) {
-                DEBUG_PRINTLN("[BHI_MDE] Enviando WAKEUP_PROCESS -> MONITORING_FALL");
+                DEBUG_PRINTLN("[BHI_MDE] Enviando WAKEUP_PROCESS -> WAKEUP_WAIT_PROCESS_RESULT");
                 notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU_WAKEUP);
                 _flag_process_full_buffer = false;
-                _bhi_mde_state = BHI_MDE_MONITORING_FALL;
+                _bhi_mde_state = WAKEUP_WAIT_PROCESS_RESULT;
             }
             break;
 
-        case BHI_MDE_MONITORING_FALL:
+        case WAKEUP_WAIT_PROCESS_RESULT:
+            if (_flag_imu_processed) {
+                DEBUG_PRINTLN("[BHI_MDE] Proceso WAKEUP completado -> REGIME_WAIT_FIFO_IRQ");
+                _bhi_mde_state = REGIME_WAIT_FIFO_IRQ;
+            }
+            break;
+
+        // ====================================================================
+        // 2. ESCENARIO DE REGIMEN (MONITOREO CONTINUO)
+        // ====================================================================
+        case REGIME_WAIT_FIFO_IRQ:
             if (_flag_bhi_irq) {
                 notifyTask<AlarmsEventsTask>(AlarmsEventsTask::UPDATE_BUFFER_BHI);
-                _bhi_mde_state = BHI_MDE_WAIT_MONITOR_UPDATE;
+                _bhi_mde_state = REGIME_WAIT_FIFO_UPDATE;
             }
             break;
 
-        case BHI_MDE_WAIT_MONITOR_UPDATE:
+        case REGIME_WAIT_FIFO_UPDATE:
             if (_flag_bhi_updated) {
                 if (NoMotionRepository::getInstance()->hasEventOccurred()) {
-                    DEBUG_PRINTLN("[BHI_MDE] No-Movimiento detectado. Iniciando desconexion...");
-                    // Reactivar gesto de movimiento
+                    DEBUG_PRINTLN("[BHI_MDE] No-Movimiento BHI detectado. Iniciando pase a SLEEP...");
+                    // Reactivar gesto de movimiento para despertar a futuro
                     MotionRepository::getInstance()->clearEventFlag();
                     MotionRepository::getInstance()->begin(1.0f, 0);
 
                     NoMotionRepository::getInstance()->clearEventFlag();
                     _bhi_disconnect_counter = 0;
-                    _bhi_mde_state = BHI_MDE_DISCONNECTING_WAIT_IRQ;
+                    _bhi_mde_state = SLEEP_WAIT_VERIFICATION_IRQ;
                 } else {
                     // Si CommLinkTask demoró en transmitir más tiempo que la ventana de impacto
                     // (IMPACT_WINDOW_SIZE / FREQ_IMU), la FIFO acumuló muestras durante la espera.
@@ -175,19 +204,28 @@ void SystemTask::updateBhiMde() {
                     } else {
                         notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
                     }
-                    _bhi_mde_state = BHI_MDE_MONITORING_FALL;
+                    _bhi_mde_state = REGIME_WAIT_PROCESS_RESULT;
                 }
             }
             break;
 
-        case BHI_MDE_DISCONNECTING_WAIT_IRQ:
-            if (_flag_bhi_irq) {
-                notifyTask<AlarmsEventsTask>(AlarmsEventsTask::UPDATE_BUFFER_BHI);
-                _bhi_mde_state = BHI_MDE_DISCONNECTING_WAIT_UPDATE;
+        case REGIME_WAIT_PROCESS_RESULT:
+            if (_flag_imu_processed) {
+                _bhi_mde_state = REGIME_WAIT_FIFO_IRQ;
             }
             break;
 
-        case BHI_MDE_DISCONNECTING_WAIT_UPDATE:
+        // ====================================================================
+        // 3. ESCENARIO DE PUESTA A DORMIR (VERIFICACION DE INMOVILIDAD)
+        // ====================================================================
+        case SLEEP_WAIT_VERIFICATION_IRQ:
+            if (_flag_bhi_irq) {
+                notifyTask<AlarmsEventsTask>(AlarmsEventsTask::UPDATE_BUFFER_BHI);
+                _bhi_mde_state = SLEEP_WAIT_FIFO_UPDATE;
+            }
+            break;
+
+        case SLEEP_WAIT_FIFO_UPDATE:
             if (_flag_bhi_updated) {
                 // Validar siempre si hubo caída durante la desconexión. Si hubo retardo en TX previo,
                 // se procesa el buffer completo (pre-fall + central) para no perder eventos rezagados.
@@ -198,24 +236,34 @@ void SystemTask::updateBhiMde() {
                 } else {
                     notifyTask<AlarmsEventsTask>(AlarmsEventsTask::CMD_PROCESS_IMU);
                 }
-                
-                if (MotionRepository::getInstance()->hasEventOccurred()) {
-                    DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado! Abortando desconexion -> MONITORING_FALL");
+                _bhi_mde_state = SLEEP_WAIT_PROCESS_RESULT;
+            }
+            break;
+
+        case SLEEP_WAIT_PROCESS_RESULT:
+            if (_flag_imu_processed) {
+                if (_last_imu_flags & FLAG_NO_MOVEMENT_LOW) {
+                    _bhi_disconnect_counter++;
+                    DEBUG_PRINT("[BHI_MDE] Inmovilidad confirmada por magnitud. Contador: ");
+                    DEBUG_PRINT(_bhi_disconnect_counter);
+                    DEBUG_PRINT("/");
+                    DEBUG_PRINTLN(NUM_PROCESS_POST_NOMOTION);
+
+                    if (_bhi_disconnect_counter >= NUM_PROCESS_POST_NOMOTION) {
+                        DEBUG_PRINTLN("[BHI_MDE] Desconexion completada. Entrando en Hibernacion (IDLE_SLEEP)");
+                        // Entrar en hibernacion
+                        BHI260Driver::getInstance()->disableNonWakeupFIFO();
+                        _bhi_mde_state = STATE_IDLE_SLEEP;
+                    } else {
+                        _bhi_mde_state = SLEEP_WAIT_VERIFICATION_IRQ;
+                    }
+                } else {
+                    DEBUG_PRINTLN("[BHI_MDE] Movimiento detectado por magnitud! Abortando dormida -> REGIME_WAIT_FIFO_IRQ");
                     MotionRepository::getInstance()->clearEventFlag();
                     NoMotionRepository::getInstance()->clearEventFlag();
                     NoMotionRepository::getInstance()->begin(1.0f, 0);
-                    
-                    _bhi_mde_state = BHI_MDE_MONITORING_FALL;
-                } else {
-                    _bhi_disconnect_counter++;
-                    if (_bhi_disconnect_counter >= NUM_PROCESS_POST_NOMOTION) {
-                        DEBUG_PRINTLN("[BHI_MDE] Desconexion completada. Entrando en Hibernacion (IDLE)");
-                        // Entrar en hibernacion
-                        BHI260Driver::getInstance()->disableNonWakeupFIFO();
-                        _bhi_mde_state = BHI_MDE_IDLE;
-                    } else {
-                        _bhi_mde_state = BHI_MDE_DISCONNECTING_WAIT_IRQ;
-                    }
+                    _bhi_disconnect_counter = 0;
+                    _bhi_mde_state = REGIME_WAIT_FIFO_IRQ;
                 }
             }
             break;
@@ -224,6 +272,7 @@ void SystemTask::updateBhiMde() {
     // Limpiar flags para la proxima corrida
     _flag_bhi_irq = false;
     _flag_bhi_updated = false;
+    _flag_imu_processed = false;
 }
 
 void SystemTask::updateButtonsMde() {
