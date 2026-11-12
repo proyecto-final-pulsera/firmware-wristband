@@ -90,6 +90,8 @@ void App::init() {
     BleDriver* comm = BleDriver::getInstance();
     comm->init();
     comm->attachRxNotifier(isr_ble_rx); // Attachea la funcion a ejecutar desde la ISR de Rx por BLE a nivel RTOS
+    DEBUG_PRINT("[App Init] UID de la pulsera: ");
+    DEBUG_PRINTLN(BRACELET_UID);
 #endif
     // Vibrador 
     VibratorDriver* vibrator = VibratorDriver::getInstance();

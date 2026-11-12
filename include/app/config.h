@@ -1,7 +1,7 @@
 #pragma once
 
 // Descomentar para utilizar comunicación Serial en lugar de BLE
-#define USE_SERIAL_COMM
+// #define USE_SERIAL_COMM
 
 // Frecuencia de muestreo del IMU (en Hz)
 #ifndef FREQ_IMU
@@ -62,8 +62,19 @@
 // =============================================================================
 // --- Configuración de Autenticación BLE (Zero Flash Writes) ---
 // =============================================================================
+inline const char* getBraceletUid() {
+    static char uid[16] = {0};
+    if (uid[0] == '\0') {
+        // Se obtiene el número de serie único de 64 bits del silicio nRF52 (FICR)
+        uint32_t combined = NRF_FICR->DEVICEID[0] ^ NRF_FICR->DEVICEID[1];
+        uint16_t short_id = (uint16_t)((combined & 0xFFFF) ^ ((combined >> 16) & 0xFFFF));
+        snprintf(uid, sizeof(uid), "SB-%04X", short_id);
+    }
+    return uid;
+}
+
 #ifndef BRACELET_UID
-#define BRACELET_UID "SB-001" // TODO Definir el UID del equipo.
+#define BRACELET_UID (getBraceletUid())
 #endif
 
 #define BLE_AUTH_TIMEOUT_MS   10000 // 10 segundos para completar autenticacion
