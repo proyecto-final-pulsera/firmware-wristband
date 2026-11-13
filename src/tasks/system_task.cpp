@@ -51,8 +51,9 @@ void SystemTask::setOffWristTimer(bool enable) {
 }
 
 void SystemTask::onKeepAliveTick() {
+    NotifyTelemetryTask::_shared_battery_data.charge_percent = 0x57; // 87% -> valor de prueba
     // Desde la ISR del Ticker, metemos el evento a CommLinkTask
-    notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_KEEP_ALIVE, TASK_SYSTEM, PRIORITY_LOW);
+    notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_KEEP_ALIVE, TASK_SYSTEM, PRIORITY_LOW, 0, &NotifyTelemetryTask::_shared_battery_data, sizeof(BatteryData));
 }
 
 void SystemTask::onMetricsTick() {
@@ -372,8 +373,8 @@ void SystemTask::updateButtonsMde() {
             DEBUG_PRINTLN("[SystemTask] PANIC BUTTON - Flanco Detectado!");
             notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_VIBRATOR_INTERMITTENT, TASK_SYSTEM, PRIORITY_NORMAL, VIB_DURATION_4S);
             // TODO notificar boton Presionado y no envio de sensores. Nota Quiza es una buena idea pasar los datos para procesarlos.
-            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
-            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
+            // notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+            // notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
             notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_PANIC_BTN_PRESS);
         }
 
@@ -390,8 +391,8 @@ void SystemTask::updateButtonsMde() {
         if (notifBtn->getPressed()) {
             DEBUG_PRINTLN("[SystemTask] NOTIF BUTTON - Flanco Detectado!");
             notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_VIBRATOR_CONTINUOUS, TASK_SYSTEM, PRIORITY_NORMAL, VIB_DURATION_2S);
-            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
-            notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
+            // notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_FALL_SENSORS);
+            // notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_ALARM, TASK_SYSTEM, PRIORITY_NORMAL, 0);
             notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_NOTIF_BTN_PRESS);
         }
 
