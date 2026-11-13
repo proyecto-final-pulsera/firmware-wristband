@@ -117,6 +117,10 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             break;
         }
         case CMD_TX_FALL_SENSORS: {
+            // Aviso que inicia la transmision de los buffers para enviar al servidor
+            comm->sendPayload(MSG_FALL_SENSORS, nullptr, 0);
+
+            // Buffer de Acelerometro
             ImuRepository* imu = ImuRepository::getInstance();
             imu->lock();
             uint16_t imuCount = 0;
@@ -128,6 +132,7 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             }
             imu->unlock();
 
+            // Buffer de Presion
             PressureRepository* pres = PressureRepository::getInstance();
             pres->lock();
             uint16_t presCount = 0;
@@ -139,6 +144,7 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             }
             pres->unlock();
 
+            // Valor de Temperatura
             float temp = TemperatureRepository::getInstance()->getTemp();
             comm->sendPayload(MSG_TEMPERATURE, (const uint8_t*)&temp, sizeof(float));
             break;
@@ -171,7 +177,11 @@ void CommLinkTask::handleTxCommand(const AppMessage& msg, CommDriver* comm) {
             break;
         }
         case CMD_TX_KEEP_ALIVE: {
-            comm->sendPayload(MSG_KEEP_ALIVE, nullptr, 0);
+            if (msg.payload_ptr != nullptr && msg.payload_len > 0) {
+                comm->sendPayload(MSG_KEEP_ALIVE, (uint8_t*)msg.payload_ptr, msg.payload_len);
+            }else{
+                comm->sendPayload(MSG_KEEP_ALIVE, nullptr, 0);
+            }
             break;
         }
         case CMD_TX_PANIC_BTN_PRESS: {
