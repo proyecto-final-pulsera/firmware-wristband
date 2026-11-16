@@ -250,6 +250,9 @@ void CommLinkTask::handleAuthPacket(const uint8_t* payload, uint16_t length, Com
         _auth_timer_start_ms = 0;
         LedDriver::getInstance()->setLedColor(RGBColors::green);
 
+        uint8_t _warning_flag = 0x02;
+        comm->sendPayload(MSG_WARNING, &_warning_flag, sizeof(uint8_t)); // Envio para que el estado inicial en la app sea "colocada"
+
         uint8_t ack_payload[2] = { static_cast<uint8_t>(MSG_AUTH), 0x00 };
         comm->sendPayload(MSG_ACK, ack_payload, sizeof(ack_payload));
     } else {
