@@ -51,7 +51,9 @@ void SystemTask::setOffWristTimer(bool enable) {
 }
 
 void SystemTask::onKeepAliveTick() {
-    NotifyTelemetryTask::_shared_battery_data.charge_percent = 0x57; // 87% -> valor de prueba
+    // NotifyTelemetryTask::_shared_battery_data.charge_percent = 0x57; // 87% -> valor de prueba
+    // Actualizo la info de nivel de bateria para tener el dato cargado en la struct
+    notifyTask<NotifyTelemetryTask>(NotifyTelemetryTask::CMD_NOTIF_BATTERY_DATA, TASK_SYSTEM, PRIORITY_LOW);
     // Desde la ISR del Ticker, metemos el evento a CommLinkTask
     notifyTask<CommLinkTask>(CommLinkTask::CMD_TX_KEEP_ALIVE, TASK_SYSTEM, PRIORITY_LOW, 0, &NotifyTelemetryTask::_shared_battery_data, sizeof(BatteryData));
 }
